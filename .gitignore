@@ -1,0 +1,22 @@
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Laravel
+sistema-electoral-backend/vendor/
+sistema-electoral-backend/.env
+sistema-electoral-backend/storage/logs/*
+sistema-electoral-backend/storage/framework/cache/*
+sistema-electoral-backend/storage/framework/sessions/*
+sistema-electoral-backend/storage/framework/views/*
+
+# Angular
+sistema-electoral-frontend/node_modules/
+sistema-electoral-frontend/dist/
