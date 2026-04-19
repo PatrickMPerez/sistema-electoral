@@ -552,7 +552,9 @@ import { AuthService } from '../../core/services/auth.service';
             </div>
           </div>
 
-          @if (cargaPorUsuario().length === 0 && !loadingGestion()) {
+          @if (loadingCarga()) {
+            <div class="spinner-wrap"><mat-spinner diameter="36"></mat-spinner></div>
+          } @else if (cargaPorUsuario().length === 0) {
             <div class="empty-state"><span class="material-symbols-outlined">info</span> Sin datos</div>
           } @else {
             <table mat-table [dataSource]="cargaPorUsuario()" class="rep-table">
@@ -662,6 +664,7 @@ export class ReportesComponent implements OnInit {
   loadingLocal   = signal(false);
   loadingAudit   = signal(false);
   loadingGestion = signal(false);
+  loadingCarga   = signal(false);
 
   // Downloads
   downloading: string | null = null;
@@ -737,8 +740,15 @@ export class ReportesComponent implements OnInit {
 
   private cargarGestion(): void {
     this.loadingGestion.set(true);
-    this.api.getReporteEstructura().subscribe(d => { this.estructura.set(d); this.loadingGestion.set(false); });
-    this.api.getReporteCargaPorUsuario().subscribe(d => this.cargaPorUsuario.set(d));
+    this.loadingCarga.set(true);
+    this.api.getReporteEstructura().subscribe({
+      next: d => { this.estructura.set(d); this.loadingGestion.set(false); },
+      error: () => this.loadingGestion.set(false),
+    });
+    this.api.getReporteCargaPorUsuario().subscribe({
+      next: d => { this.cargaPorUsuario.set(d); this.loadingCarga.set(false); },
+      error: () => this.loadingCarga.set(false),
+    });
   }
 
   descargarPadronCompleto(): void {

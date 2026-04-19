@@ -361,24 +361,38 @@ class ReportesController extends Controller
      */
     public function estructura(): JsonResponse
     {
-        $zonas = Zona::with([
-            'jefeZona',
-            'coordinadores' => fn($q) => $q->withCount([
-                'votantes',
-                'votantes as ya_votaron' => fn($q) => $q->where('estado_votacion', 'ya_voto'),
-            ]),
-        ])
-            ->get()
-            ->map(fn($z) => [
-                'zona'          => $z->nombre_zona,
-                'jefe_zona'     => $z->jefeZona?->nombre_completo,
-                'coordinadores' => $z->coordinadores->map(fn($c) => [
-                    'coordinador'    => $c->nombre_completo,
-                    'total_votantes' => $c->votantes_count,
-                    'ya_votaron'     => $c->ya_votaron,
-                    'pendientes'     => $c->votantes_count - $c->ya_votaron,
-                ]),
-            ]);
+        $rows = DB::table('zonas as z')
+            ->leftJoin('jefes_zona as jz', 'jz.id', '=', 'z.jefe_zona_id')
+            ->leftJoin('coordinadores as c', 'c.zona_id', '=', 'z.id')
+            ->leftJoin('votantes as v', 'v.coordinador_id', '=', 'c.id')
+            ->selectRaw('
+                z.id           AS zona_id,
+                z.nombre_zona,
+                jz.nombre_completo                                            AS jefe_zona,
+                c.id           AS coord_id,
+                c.nombre_completo                                             AS coordinador,
+                COUNT(v.id)                                                   AS total_votantes,
+                SUM(CASE WHEN v.estado_votacion = "ya_voto" THEN 1 ELSE 0 END) AS ya_votaron
+            ')
+            ->groupBy('z.id', 'z.nombre_zona', 'jz.nombre_completo', 'c.id', 'c.nombre_completo')
+            ->orderBy('z.nombre_zona')
+            ->get();
+
+        $zonas = $rows->groupBy('zona_id')->map(function ($group) {
+            $first = $group->first();
+            return [
+                'zona'          => $first->nombre_zona,
+                'jefe_zona'     => $first->jefe_zona,
+                'coordinadores' => $group
+                    ->filter(fn($r) => $r->coord_id !== null)
+                    ->map(fn($r) => [
+                        'coordinador'    => $r->coordinador,
+                        'total_votantes' => (int) $r->total_votantes,
+                        'ya_votaron'     => (int) $r->ya_votaron,
+                        'pendientes'     => (int) $r->total_votantes - (int) $r->ya_votaron,
+                    ])->values(),
+            ];
+        })->values();
 
         return response()->json($zonas);
     }

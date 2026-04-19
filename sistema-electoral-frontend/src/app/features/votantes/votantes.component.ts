@@ -283,11 +283,11 @@ export class VotantesComponent implements OnInit {
   zonas              = signal<any[]>([]);
   zonasFiltradas     = signal<any[]>([]);
 
-  filtros: Record<string, any> = {
+  filtros = {
     buscar: '',
     departamento: '',
     distrito: '',
-    zona_id: '',
+    zona_id: '' as string | number,
     estado_votacion: '',
   };
 
@@ -308,8 +308,8 @@ export class VotantesComponent implements OnInit {
   /** Al cambiar departamento → filtra distritos y zonas */
   onDepartamentoFiltro(event: MatSelectChange): void {
     const dpto = event.value as string;
-    this.filtros['distrito'] = '';
-    this.filtros['zona_id']  = '';
+    this.filtros.distrito = '';
+    this.filtros.zona_id  = '';
 
     if (dpto) {
       this.distritosFiltrables.set(this.geo.getDistritos(dpto));
@@ -327,7 +327,11 @@ export class VotantesComponent implements OnInit {
   onFiltro(): void { this.page = 1; this.cargar(); }
 
   limpiarFiltros(): void {
-    Object.keys(this.filtros).forEach(k => this.filtros[k] = '');
+    this.filtros.buscar = '';
+    this.filtros.departamento = '';
+    this.filtros.distrito = '';
+    this.filtros.zona_id = '';
+    this.filtros.estado_votacion = '';
     this.distritosFiltrables.set([]);
     this.zonasFiltradas.set(this.zonas());
     this.onFiltro();
