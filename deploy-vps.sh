@@ -2,9 +2,9 @@
 # Script de deploy en el VPS - se ejecuta desde el servidor
 set -e
 
-BACKEND="/var/www/sistema-electoral/sistema-electoral-backend"
-FRONTEND_SRC="/var/www/sistema-electoral/sistema-electoral-frontend"
-FRONTEND_WEB="/var/www/html/frontend"
+BACKEND="/var/www/backend"
+FRONTEND_SRC="/var/www/repo/sistema-electoral-frontend"
+FRONTEND_WEB="/var/www/frontend"
 
 echo ""
 echo "======================================"
