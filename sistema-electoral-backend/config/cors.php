@@ -6,6 +6,7 @@ return [
     'allowed_origins' => [
         'http://localhost:4200',
         'http://155.133.23.143',
+        'http://155.133.23.143:8080',
     ],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
