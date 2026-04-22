@@ -273,6 +273,41 @@ import { AuthService } from '../../core/services/auth.service';
           </mat-card>
         }
 
+        <!-- Padrón por jefe de zona (admin y jefe_zona) -->
+        @if (isAdminOrJefe()) {
+          <mat-card class="padron-card">
+            <div class="padron-icon" style="background:#4a148c20;color:#4a148c">
+              <span class="material-symbols-outlined">manage_accounts</span>
+            </div>
+            <h4>Padrón por Jefe de Zona</h4>
+            <p>Todos los votantes asignados a un jefe de zona.</p>
+            <div class="padron-chip-row">
+              <span class="chip chip-blue">Admin · Jefe</span>
+              <span class="chip chip-green">Excel</span>
+            </div>
+            @if (isAdmin()) {
+              <mat-form-field appearance="outline" style="width:100%;margin-top:8px">
+                <mat-label>Seleccioná el jefe de zona</mat-label>
+                <mat-select [(ngModel)]="selectedJefeZonaId">
+                  @for (j of jefesZona(); track j.id) {
+                    <mat-option [value]="j.id">{{ j.nombre_completo }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+            <button mat-flat-button color="primary" class="dl-btn"
+              [disabled]="downloading === 'jefeZona' || (isAdmin() && !selectedJefeZonaId)"
+              (click)="descargarPadronJefeZona()">
+              @if (downloading === 'jefeZona') {
+                <mat-spinner diameter="18" style="margin-right:8px"></mat-spinner>
+              } @else {
+                <span class="material-symbols-outlined">download</span>
+              }
+              Descargar Excel
+            </button>
+          </mat-card>
+        }
+
         <!-- Padrón por coordinador (admin y coordinador) -->
         <mat-card class="padron-card">
           <div class="padron-icon" style="background:#e65100 20;color:#e65100">
@@ -658,6 +693,7 @@ export class ReportesComponent implements OnInit {
   cargaPorUsuario  = signal<any[]>([]);
   zonas            = signal<any[]>([]);
   coordinadores    = signal<any[]>([]);
+  jefesZona        = signal<any[]>([]);
 
   // Loading
   loadingCoord   = signal(false);
@@ -670,8 +706,9 @@ export class ReportesComponent implements OnInit {
   downloading: string | null = null;
 
   // Selects (ngModel)
-  selectedZonaId: number | null = null;
-  selectedCoordId: number | null = null;
+  selectedZonaId:     number | null = null;
+  selectedCoordId:    number | null = null;
+  selectedJefeZonaId: number | null = null;
 
   // Columns
   coordCols   = ['coordinador','zona','total','ya_votaron','pendientes','porcentaje'];
@@ -688,6 +725,7 @@ export class ReportesComponent implements OnInit {
     if (this.isAdmin()) {
       this.api.getZonas().subscribe(z => this.zonas.set(z));
       this.api.getCoordinadores().subscribe(c => this.coordinadores.set(c));
+      this.api.getJefesZona().subscribe(j => this.jefesZona.set(j));
     }
   }
 
@@ -765,6 +803,16 @@ export class ReportesComponent implements OnInit {
     this.downloading = 'zona';
     this.api.descargarPadronZona(zonaId).subscribe({
       next: blob => { this.triggerDownload(blob, `padron-zona-${zonaId}.xlsx`); this.downloading = null; },
+      error: () => { this.downloading = null; }
+    });
+  }
+
+  descargarPadronJefeZona(): void {
+    const jefeId = this.selectedJefeZonaId ?? this.auth.user()?.jefe_zona_id;
+    if (!jefeId) return;
+    this.downloading = 'jefeZona';
+    this.api.descargarPadronJefeZona(jefeId).subscribe({
+      next: blob => { this.triggerDownload(blob, `padron-jefe-zona-${jefeId}.xlsx`); this.downloading = null; },
       error: () => { this.downloading = null; }
     });
   }

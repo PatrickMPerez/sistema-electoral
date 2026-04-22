@@ -16,6 +16,8 @@ class StoreUsuarioRequest extends FormRequest
             'zona_id'        => 'nullable|exists:zonas,id',
             'jefe_zona_id'   => 'nullable|exists:jefes_zona,id',
             'coordinador_id' => 'nullable|exists:coordinadores,id',
+            'veedor_id'      => 'nullable|exists:veedores,id',
+            'mesa'           => 'nullable|string|max:20',
         ];
     }
 }

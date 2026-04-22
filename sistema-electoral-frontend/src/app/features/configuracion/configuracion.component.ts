@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -12,7 +12,9 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { UsuarioDialogComponent } from './usuario-dialog.component';
 
 @Component({
@@ -22,11 +24,12 @@ import { UsuarioDialogComponent } from './usuario-dialog.component';
     CommonModule, ReactiveFormsModule, MatTabsModule, MatTableModule,
     MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatDialogModule, MatCardModule,
-    MatProgressSpinnerModule, MatSlideToggleModule
+    MatProgressSpinnerModule, MatSlideToggleModule, MatTooltipModule
   ],
   template: `
   <mat-tab-group>
-    <!-- Usuarios -->
+    <!-- Usuarios (solo admin) -->
+    @if (esAdmin()) {
     <mat-tab label="Usuarios">
       <div class="tab-content page-card">
         <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
@@ -70,8 +73,10 @@ import { UsuarioDialogComponent } from './usuario-dialog.component';
         }
       </div>
     </mat-tab>
+    } <!-- fin @if esAdmin Usuarios -->
 
-    <!-- Zonas -->
+    <!-- Zonas y Jefes de Zona (solo admin) -->
+    @if (esAdmin()) {
     <mat-tab label="Zonas">
       <div class="tab-content page-card">
         <form [formGroup]="zonaForm" (ngSubmit)="guardarZona()" class="inline-form">
@@ -160,8 +165,193 @@ import { UsuarioDialogComponent } from './usuario-dialog.component';
         </table>
       </div>
     </mat-tab>
+    } <!-- fin @if esAdmin Zonas+Jefes -->
 
-    <!-- Movimientos -->
+    <!-- Coordinadores (admin + jefe_zona) -->
+    <mat-tab label="Coordinadores">
+      <div class="tab-content page-card">
+        <form [formGroup]="coordForm" (ngSubmit)="guardarCoord()" class="inline-form">
+          <mat-form-field appearance="outline">
+            <mat-label>Nombre Completo *</mat-label>
+            <input matInput formControlName="nombre_completo">
+            <mat-error *ngIf="coordForm.get('nombre_completo')?.hasError('required')">Requerido</mat-error>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Cédula *</mat-label>
+            <input matInput formControlName="cedula" placeholder="Ej: 1234567">
+            <mat-error *ngIf="coordForm.get('cedula')?.hasError('required')">Requerido</mat-error>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Teléfono</mat-label>
+            <input matInput formControlName="telefono">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Jefe Zonal *</mat-label>
+            <mat-select formControlName="jefe_zona_id">
+              <mat-option [value]="null" disabled>— Seleccione —</mat-option>
+              @for (j of jefes(); track j.id) {
+                <mat-option [value]="j.id">{{ j.nombre_completo }}</mat-option>
+              }
+            </mat-select>
+            <mat-icon matSuffix>manage_accounts</mat-icon>
+            <mat-error *ngIf="coordForm.get('jefe_zona_id')?.hasError('required')">Requerido</mat-error>
+          </mat-form-field>
+          <div style="display:flex;gap:8px;align-items:flex-start;padding-top:4px">
+            <button mat-raised-button color="primary" type="submit" [disabled]="coordForm.invalid">
+              <mat-icon>{{ editandoCoordId() ? 'save' : 'add' }}</mat-icon>
+              {{ editandoCoordId() ? 'Guardar' : 'Agregar' }}
+            </button>
+            @if (editandoCoordId()) {
+              <button mat-stroked-button type="button" (click)="cancelarEditCoord()">
+                <mat-icon>cancel</mat-icon> Cancelar
+              </button>
+            }
+          </div>
+        </form>
+
+        @if (errorCoord()) { <div class="err-inline">{{ errorCoord() }}</div> }
+
+        <table mat-table [dataSource]="coordinadores()" class="mat-elevation-z0" style="margin-top:16px">
+          <ng-container matColumnDef="nombre_completo">
+            <th mat-header-cell *matHeaderCellDef>Nombre</th>
+            <td mat-cell *matCellDef="let c">{{ c.nombre_completo }}</td>
+          </ng-container>
+          <ng-container matColumnDef="cedula">
+            <th mat-header-cell *matHeaderCellDef>Cédula</th>
+            <td mat-cell *matCellDef="let c">{{ c.cedula }}</td>
+          </ng-container>
+          <ng-container matColumnDef="telefono">
+            <th mat-header-cell *matHeaderCellDef>Teléfono</th>
+            <td mat-cell *matCellDef="let c">{{ c.telefono ?? '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="jefe_zona">
+            <th mat-header-cell *matHeaderCellDef>Jefe Zonal</th>
+            <td mat-cell *matCellDef="let c">
+              @if (c.jefe_zona) {
+                <span style="font-weight:500;color:#1a237e">{{ c.jefe_zona.nombre_completo }}</span>
+              } @else {
+                <span style="color:#e65100;font-weight:600">⚠ Sin asignar</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="activo">
+            <th mat-header-cell *matHeaderCellDef>Estado</th>
+            <td mat-cell *matCellDef="let c">
+              <span [class]="c.activo ? 'badge-voto' : 'badge-pend'">{{ c.activo ? 'Activo' : 'Inactivo' }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="acciones">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let c">
+              <button mat-icon-button color="primary" matTooltip="Editar" (click)="editarCoord(c)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button [color]="c.activo ? 'warn' : 'primary'"
+                      [matTooltip]="c.activo ? 'Desactivar' : 'Activar'"
+                      (click)="toggleActivoCoord(c)">
+                <mat-icon>{{ c.activo ? 'person_off' : 'person' }}</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="coordCols"></tr>
+          <tr mat-row *matRowDef="let row; columns: coordCols;"
+              [style.background]="editandoCoordId() === row.id ? '#e8eaf6' : ''"></tr>
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="coordCols.length"
+                style="text-align:center;padding:16px;color:#999">Sin coordinadores registrados</td>
+          </tr>
+        </table>
+      </div>
+    </mat-tab>
+
+    <!-- Veedores (admin + jefe_zona) -->
+    @if (esAdmin() || esJefeZona()) {
+    <mat-tab label="Veedores">
+      <div class="tab-content page-card">
+        <form [formGroup]="veedorForm" (ngSubmit)="guardarVeedor()" class="inline-form">
+          <mat-form-field appearance="outline">
+            <mat-label>Nombre Completo *</mat-label>
+            <input matInput formControlName="nombre_completo">
+            <mat-error *ngIf="veedorForm.get('nombre_completo')?.hasError('required')">Requerido</mat-error>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Cédula *</mat-label>
+            <input matInput formControlName="cedula" placeholder="Ej: 1234567">
+            <mat-error *ngIf="veedorForm.get('cedula')?.hasError('required')">Requerido</mat-error>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Teléfono</mat-label>
+            <input matInput formControlName="telefono">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Mesa</mat-label>
+            <input matInput formControlName="mesa" placeholder="Ej: 1, 2, 15...">
+          </mat-form-field>
+          <div style="display:flex;gap:8px;align-items:flex-start;padding-top:4px">
+            <button mat-raised-button color="primary" type="submit" [disabled]="veedorForm.invalid">
+              <mat-icon>{{ editandoVeedorId() ? 'save' : 'add' }}</mat-icon>
+              {{ editandoVeedorId() ? 'Guardar' : 'Agregar' }}
+            </button>
+            @if (editandoVeedorId()) {
+              <button mat-stroked-button type="button" (click)="cancelarEditVeedor()">
+                <mat-icon>cancel</mat-icon> Cancelar
+              </button>
+            }
+          </div>
+        </form>
+
+        @if (errorVeedor()) { <div class="err-inline">{{ errorVeedor() }}</div> }
+
+        <table mat-table [dataSource]="veedores()" class="mat-elevation-z0" style="margin-top:16px">
+          <ng-container matColumnDef="nombre_completo">
+            <th mat-header-cell *matHeaderCellDef>Nombre</th>
+            <td mat-cell *matCellDef="let v">{{ v.nombre_completo }}</td>
+          </ng-container>
+          <ng-container matColumnDef="cedula">
+            <th mat-header-cell *matHeaderCellDef>Cédula</th>
+            <td mat-cell *matCellDef="let v">{{ v.cedula }}</td>
+          </ng-container>
+          <ng-container matColumnDef="telefono">
+            <th mat-header-cell *matHeaderCellDef>Teléfono</th>
+            <td mat-cell *matCellDef="let v">{{ v.telefono ?? '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="mesa">
+            <th mat-header-cell *matHeaderCellDef>Mesa</th>
+            <td mat-cell *matCellDef="let v">{{ v.mesa ?? '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="activo">
+            <th mat-header-cell *matHeaderCellDef>Estado</th>
+            <td mat-cell *matCellDef="let v">
+              <span [class]="v.activo ? 'badge-voto' : 'badge-pend'">{{ v.activo ? 'Activo' : 'Inactivo' }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="acciones">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let v">
+              <button mat-icon-button color="primary" matTooltip="Editar" (click)="editarVeedor(v)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button [color]="v.activo ? 'warn' : 'primary'"
+                      [matTooltip]="v.activo ? 'Desactivar' : 'Activar'"
+                      (click)="toggleActivoVeedor(v)">
+                <mat-icon>{{ v.activo ? 'person_off' : 'person' }}</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="veedorCols"></tr>
+          <tr mat-row *matRowDef="let row; columns: veedorCols;"
+              [style.background]="editandoVeedorId() === row.id ? '#e8eaf6' : ''"></tr>
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="veedorCols.length"
+                style="text-align:center;padding:16px;color:#999">Sin veedores registrados</td>
+          </tr>
+        </table>
+      </div>
+    </mat-tab>
+    } <!-- fin @if esAdmin||esJefeZona Veedores -->
+
+    <!-- Movimientos (solo admin) -->
+    @if (esAdmin()) {
     <mat-tab label="Movimientos">
       <div class="tab-content page-card">
         <form [formGroup]="movForm" (ngSubmit)="guardarMovimiento()" class="inline-form">
@@ -215,6 +405,7 @@ import { UsuarioDialogComponent } from './usuario-dialog.component';
         </table>
       </div>
     </mat-tab>
+    } <!-- fin @if esAdmin Movimientos -->
   </mat-tab-group>
   `,
   styles: [`
@@ -222,37 +413,62 @@ import { UsuarioDialogComponent } from './usuario-dialog.component';
     .inline-form { display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
     .inline-form mat-form-field { min-width:200px; }
     .err-inline { color:#c62828; background:#ffebee; padding:8px 12px; border-radius:4px; font-size:13px; margin-bottom:8px; }
+    .badge-voto { background:#e8f5e9; color:#2e7d32; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:600; }
+    .badge-pend { background:#fff3e0; color:#e65100; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:600; }
   `]
 })
 export class ConfiguracionComponent implements OnInit {
   private api    = inject(ApiService);
+  private auth   = inject(AuthService);
   private dialog = inject(MatDialog);
   private fb     = inject(FormBuilder);
 
+  esAdmin = computed(() => this.auth.role() === 'administrador');
+  esJefeZona = computed(() => this.auth.role() === 'jefe_zona');
+
   usuarioCols    = ['name','username','role','activo','acciones'];
+  coordCols      = ['nombre_completo','cedula','telefono','jefe_zona','activo','acciones'];
+  veedorCols     = ['nombre_completo','cedula','telefono','mesa','activo','acciones'];
   usuarios       = signal<any[]>([]);
   zonas          = signal<any[]>([]);
   jefes          = signal<any[]>([]);
+  coordinadores  = signal<any[]>([]);
+  veedores       = signal<any[]>([]);
   movimientos    = signal<any[]>([]);
   loadingUsuarios = signal(true);
   errorZona      = signal('');
   errorJefe      = signal('');
+  errorCoord     = signal('');
+  errorVeedor    = signal('');
   errorMov       = signal('');
+  editandoCoordId  = signal<number | null>(null);
+  editandoVeedorId = signal<number | null>(null);
 
-  // Campo correcto: nombre_zona (no "nombre")
   zonaForm = this.fb.group({
     nombre_zona:  ['', Validators.required],
     jefe_zona_id: [null as number | null]
   });
 
-  // Campos correctos: nombre_completo + cedula (obligatorio) + telefono
   jefeForm = this.fb.group({
     nombre_completo: ['', Validators.required],
     cedula:          ['', Validators.required],
     telefono:        ['']
   });
 
-  // Campos correctos: nombre_movimiento + nombre_candidato (ambos obligatorios)
+  coordForm = this.fb.group({
+    nombre_completo: ['', Validators.required],
+    cedula:          ['', Validators.required],
+    telefono:        [''],
+    jefe_zona_id:    [null as number | null, Validators.required],
+  });
+
+  veedorForm = this.fb.group({
+    nombre_completo: ['', Validators.required],
+    cedula:          ['', Validators.required],
+    telefono:        [''],
+    mesa:            [''],
+  });
+
   movForm = this.fb.group({
     nombre_movimiento: ['', Validators.required],
     nombre_candidato:  ['', Validators.required],
@@ -261,10 +477,16 @@ export class ConfiguracionComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.api.getUsuarios().subscribe(u => { this.usuarios.set(u); this.loadingUsuarios.set(false); });
-    this.api.getZonas().subscribe(z => this.zonas.set(z));
     this.api.getJefesZona().subscribe(j => this.jefes.set(j));
-    this.api.getMovimientos().subscribe(m => this.movimientos.set(m));
+    this.api.getCoordinadores(true).subscribe(c => this.coordinadores.set(c));
+    this.api.getVeedores(true).subscribe(v => this.veedores.set(v));
+    if (this.esAdmin()) {
+      this.api.getUsuarios().subscribe(u => { this.usuarios.set(u); this.loadingUsuarios.set(false); });
+      this.api.getZonas().subscribe(z => this.zonas.set(z));
+      this.api.getMovimientos().subscribe(m => this.movimientos.set(m));
+    } else {
+      this.loadingUsuarios.set(false);
+    }
   }
 
   abrirUsuarioDialog(u?: any): void {
@@ -274,6 +496,88 @@ export class ConfiguracionComponent implements OnInit {
         this.loadingUsuarios.set(true);
         this.api.getUsuarios().subscribe(u => { this.usuarios.set(u); this.loadingUsuarios.set(false); });
       }
+    });
+  }
+
+  guardarCoord(): void {
+    if (this.coordForm.invalid) { this.coordForm.markAllAsTouched(); return; }
+    this.errorCoord.set('');
+    const id = this.editandoCoordId();
+    const obs = id
+      ? this.api.updateCoordinador(id, this.coordForm.value)
+      : this.api.createCoordinador(this.coordForm.value);
+
+    obs.subscribe({
+      next: () => {
+        this.api.getCoordinadores(true).subscribe(c => this.coordinadores.set(c));
+        this.cancelarEditCoord();
+      },
+      error: err => this.errorCoord.set(this.parseError(err))
+    });
+  }
+
+  editarCoord(c: any): void {
+    this.editandoCoordId.set(c.id);
+    this.coordForm.patchValue({
+      nombre_completo: c.nombre_completo,
+      cedula:          c.cedula,
+      telefono:        c.telefono ?? '',
+      jefe_zona_id:    c.jefe_zona_id ?? null,
+    });
+    this.errorCoord.set('');
+  }
+
+  cancelarEditCoord(): void {
+    this.editandoCoordId.set(null);
+    this.coordForm.reset({ jefe_zona_id: null });
+    this.errorCoord.set('');
+  }
+
+  toggleActivoCoord(c: any): void {
+    this.api.updateCoordinador(c.id, { activo: !c.activo }).subscribe({
+      next: () => this.api.getCoordinadores().subscribe(list => this.coordinadores.set(list)),
+      error: err => this.errorCoord.set(this.parseError(err))
+    });
+  }
+
+  guardarVeedor(): void {
+    if (this.veedorForm.invalid) { this.veedorForm.markAllAsTouched(); return; }
+    this.errorVeedor.set('');
+    const id = this.editandoVeedorId();
+    const obs = id
+      ? this.api.updateVeedor(id, this.veedorForm.value)
+      : this.api.createVeedor(this.veedorForm.value);
+
+    obs.subscribe({
+      next: () => {
+        this.api.getVeedores(true).subscribe(v => this.veedores.set(v));
+        this.cancelarEditVeedor();
+      },
+      error: err => this.errorVeedor.set(this.parseError(err))
+    });
+  }
+
+  editarVeedor(v: any): void {
+    this.editandoVeedorId.set(v.id);
+    this.veedorForm.patchValue({
+      nombre_completo: v.nombre_completo,
+      cedula:          v.cedula,
+      telefono:        v.telefono ?? '',
+      mesa:            v.mesa ?? '',
+    });
+    this.errorVeedor.set('');
+  }
+
+  cancelarEditVeedor(): void {
+    this.editandoVeedorId.set(null);
+    this.veedorForm.reset();
+    this.errorVeedor.set('');
+  }
+
+  toggleActivoVeedor(v: any): void {
+    this.api.updateVeedor(v.id, { activo: !v.activo }).subscribe({
+      next: () => this.api.getVeedores(true).subscribe(list => this.veedores.set(list)),
+      error: err => this.errorVeedor.set(this.parseError(err))
     });
   }
 

@@ -6,6 +6,7 @@ export interface User {
   username: string;
   role: Rol;
   activo: boolean;
+  mesa?: string;
   zona_id?: number;
   jefe_zona_id?: number;
   coordinador_id?: number;

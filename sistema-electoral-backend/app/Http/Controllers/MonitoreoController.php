@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ReporteExport;
+use App\Models\Coordinador;
 use App\Models\Votante;
 use App\Models\Zona;
 use Illuminate\Http\JsonResponse;
@@ -104,5 +105,41 @@ class MonitoreoController extends Controller
         }
 
         return response()->json($zonas);
+    }
+
+    /**
+     * Avance por coordinador.
+     * Admin ve todos; jefe_zona ve solo los de su zona; coordinador ve solo el suyo.
+     * GET /monitoreo/por-coordinador
+     */
+    public function porCoordinador(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $query = Coordinador::withCount([
+            'votantes',
+            'votantes as ya_votaron' => fn($q) => $q->where('estado_votacion', 'ya_voto'),
+        ])->with('zona');
+
+        if ($user->isJefeZona()) {
+            $query->where('jefe_zona_id', $user->jefe_zona_id);
+        } elseif ($user->role === 'coordinador') {
+            $query->where('id', $user->coordinador_id);
+        }
+
+        $data = $query->orderBy('nombre_completo')->get()->map(fn($c) => [
+            'id'          => $c->id,
+            'nombre'      => $c->nombre_completo,
+            'telefono'    => $c->telefono,
+            'zona'        => $c->zona?->nombre_zona ?? '—',
+            'total'       => $c->votantes_count,
+            'ya_votaron'  => $c->ya_votaron,
+            'pendientes'  => $c->votantes_count - $c->ya_votaron,
+            'porcentaje'  => $c->votantes_count > 0
+                ? round(($c->ya_votaron / $c->votantes_count) * 100, 2)
+                : 0,
+        ]);
+
+        return response()->json($data);
     }
 }

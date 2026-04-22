@@ -26,7 +26,7 @@ interface NavItem { label: string; icon: string; route: string; roles: string[] 
     <div class="sidebar-header">
       <div class="logo">
         <span class="material-symbols-outlined logo-icon">how_to_vote</span>
-        <h2>Sistema<br><span class="fw-light">Electoral</span></h2>
+        <h2>Boca<br><span class="fw-light">de Urna</span></h2>
       </div>
       <button class="icon-btn close-sidebar-btn" (click)="isSidebarOpen = false">
         <span class="material-symbols-outlined">close_fullscreen</span>
@@ -98,6 +98,18 @@ interface NavItem { label: string; icon: string; route: string; roles: string[] 
       </div>
     </header>
 
+    <!-- VEEDOR BANNER -->
+    @if (auth.role() === 'vedor') {
+      <div class="veedor-banner">
+        <span class="material-symbols-outlined">badge</span>
+        <div>
+          <span class="veedor-bienvenida">Bienvenido/a,</span>
+          <span class="veedor-nombre">{{ auth.user()?.name }}</span>
+        </div>
+        <span class="veedor-rol-chip">Veedor/a</span>
+      </div>
+    }
+
     <!-- CONTENT AREA -->
     <main class="content-area">
       <router-outlet></router-outlet>
@@ -107,7 +119,7 @@ interface NavItem { label: string; icon: string; route: string; roles: string[] 
   `,
   styles: [`
 .app-layout { display: flex; height: 100vh; overflow: hidden; position: relative; }
-.sidebar { width: 280px; background-color: var(--c-primary); color: #fff; display: flex; flex-direction: column; transition: transform var(--transition-normal); z-index: 100; box-shadow: var(--shadow-lg); }
+.sidebar { width: 280px; background-color: var(--c-primary); color: #fff; display: flex; flex-direction: column; transition: transform var(--transition-normal); z-index: 100; box-shadow: var(--shadow-lg); position: relative; }
 .sidebar-header { height: 70px; padding: 0 var(--space-md); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
 .logo { display: flex; align-items: center; gap: var(--space-sm); }
 .logo-icon { font-size: 32px; color: var(--c-secondary); }
@@ -124,7 +136,7 @@ interface NavItem { label: string; icon: string; route: string; roles: string[] 
 .sidebar-footer { padding: var(--space-md) 0; border-top: 1px solid rgba(255, 255, 255, 0.1); }
 .logout-btn { width: 100%; background: transparent; border: none; text-align: left; }
 .logout-btn:hover { color: var(--c-danger); background-color: rgba(225, 29, 72, 0.1); }
-.main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; background-color: var(--c-bg-app); }
+.main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; background-color: var(--c-bg-app); position: relative; z-index: 1; isolation: isolate; }
 .topbar { height: 70px; background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--c-border); display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-lg); z-index: 10; }
 .page-title-modern { font-family: var(--font-family-heading); font-size: 1.25rem; font-weight: 600; color: var(--c-primary); }
 .topbar-left, .topbar-right { display: flex; align-items: center; gap: var(--space-md); }
@@ -142,8 +154,13 @@ interface NavItem { label: string; icon: string; route: string; roles: string[] 
 .user-name { font-weight: 600; font-size: 0.9rem; color: var(--c-text-main); }
 .user-role { font-size: 0.75rem; color: var(--c-text-muted); text-transform: capitalize; }
 .avatar-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--c-primary-light); }
+.veedor-banner { display: flex; align-items: center; gap: 12px; background: linear-gradient(90deg, #1a237e 0%, #283593 100%); color: #fff; padding: 12px 24px; font-size: 1rem; }
+.veedor-banner .material-symbols-outlined { font-size: 28px; color: #ffd54f; }
+.veedor-bienvenida { display: block; font-size: 0.75rem; opacity: 0.8; }
+.veedor-nombre { display: block; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+.veedor-rol-chip { margin-left: auto; background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 14px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
 .content-area { flex: 1; padding: var(--space-xl) var(--space-lg); overflow-y: auto; background: var(--c-bg-app); }
-.sidebar-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
+.sidebar-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); z-index: 95; }
 
 @media screen and (max-width: 992px) {
   .menu-toggle-btn { display: flex; }
@@ -175,7 +192,7 @@ export class LayoutComponent {
     { label: 'Faltantes',        icon: 'person_off',       route: '/faltantes',        roles: ['administrador','jefe_zona','coordinador'] },
     { label: 'Reportes',         icon: 'assessment',       route: '/reportes',         roles: ['administrador','jefe_zona','coordinador'] },
     { label: 'Auditoría',        icon: 'history',          route: '/auditoria',        roles: ['administrador'] },
-    { label: 'Configuración',    icon: 'settings',         route: '/configuracion',    roles: ['administrador'] },
+    { label: 'Configuración',    icon: 'settings',         route: '/configuracion',    roles: ['administrador', 'jefe_zona'] },
   ];
 
   navItems = computed(() => {
@@ -186,7 +203,7 @@ export class LayoutComponent {
   pageTitle = computed(() => {
     const url = this.router.url;
     const found = this.allNavItems.find(i => url.startsWith(i.route));
-    return found?.label ?? 'Sistema Electoral';
+    return found?.label ?? 'Boca de Urna';
   });
 
   logout(): void { this.auth.logout(); }

@@ -11,6 +11,7 @@ class Votante extends Model
         'cedula', 'telefono', 'localidad',
         'departamento', 'distrito', 'seccional', 'mesa',
         'numero_orden', 'estado_votacion',
+        'fecha_nacimiento', 'direccion', 'fecha_afiliacion',
         'zona_id', 'coordinador_id', 'jefe_zona_id',
         'movimiento_id', 'local_votacion_id', 'usuario_carga_id',
     ];
@@ -37,8 +38,11 @@ class Votante extends Model
     public function scopeFiltrarPorRol(Builder $query, User $user): Builder
     {
         return match ($user->role) {
-            'jefe_zona'   => $query->where('zona_id', $user->zona_id),
-            'coordinador' => $query->where('coordinador_id', $user->coordinador_id),
+            'jefe_zona'   => $query, // jefe_zona ve todos los votantes del padrón
+            'coordinador' => $query->where(fn($q) => $q
+                ->whereNull('coordinador_id')
+                ->orWhere('coordinador_id', $user->coordinador_id)
+            ),
             default       => $query,
         };
     }

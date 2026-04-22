@@ -10,7 +10,8 @@ class MarcarVotoRequest extends FormRequest
     {
         return [
             'numero_orden' => 'required|integer|min:1',
-            'mesa'         => 'nullable|string|max:20',
+            'cedula'       => 'required|string',
+            'mesa'         => 'required|string|max:20',
             'observacion'  => 'nullable|string|max:500',
         ];
     }

@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\VotantesImport;
+use App\Imports\RelinkLocalImport;
 
 class VotanteController extends Controller
 {
@@ -16,8 +17,14 @@ class VotanteController extends Controller
         $query = Votante::with(['zona', 'coordinador', 'jefeZona', 'localVotacion', 'movimiento'])
             ->filtrarPorRol($request->user());
 
-        if ($request->filled('zona_id'))          $query->where('zona_id', $request->zona_id);
-        if ($request->filled('coordinador_id'))   $query->where('coordinador_id', $request->coordinador_id);
+        if ($request->filled('zona_id'))         $query->where('zona_id', $request->zona_id);
+        if ($request->filled('coordinador_id')) {
+            if ($request->coordinador_id === 'sin_asignar') {
+                $query->whereNull('coordinador_id');
+            } else {
+                $query->where('coordinador_id', $request->coordinador_id);
+            }
+        }
         if ($request->filled('estado_votacion'))  $query->where('estado_votacion', $request->estado_votacion);
         if ($request->filled('departamento'))     $query->where('departamento', $request->departamento);
         if ($request->filled('distrito'))         $query->where('distrito', $request->distrito);
@@ -49,13 +56,23 @@ class VotanteController extends Controller
 
     public function update(UpdateVotanteRequest $request, Votante $votante): JsonResponse
     {
-        $votante->update($request->validated());
+        $data = $request->validated();
+
+        // El coordinador solo puede asociarse a sí mismo
+        if ($request->user()->role === 'coordinador') {
+            $data['coordinador_id'] = $request->user()->coordinador_id;
+        }
+
+        $votante->update($data);
         return response()->json($votante->fresh(['zona', 'coordinador', 'jefeZona', 'localVotacion', 'movimiento']));
     }
 
     public function importarPreview(Request $request): JsonResponse
     {
-        $request->validate(['archivo' => 'required|file|mimes:xlsx,xls,csv']);
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
+        $request->validate(['archivo' => 'required|file|mimes:xlsx,xls,csv|max:51200']);
         $import = new VotantesImport(true);
         Excel::import($import, $request->file('archivo'));
 
@@ -68,7 +85,10 @@ class VotanteController extends Controller
 
     public function importarConfirmar(Request $request): JsonResponse
     {
-        $request->validate(['archivo' => 'required|file|mimes:xlsx,xls,csv']);
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
+        $request->validate(['archivo' => 'required|file|mimes:xlsx,xls,csv|max:51200']);
         $import = new VotantesImport(false, $request->user()->id);
         Excel::import($import, $request->file('archivo'));
 
@@ -80,6 +100,23 @@ class VotanteController extends Controller
         return response()->json([
             'importados' => $import->getImportados(),
             'saltados'   => $import->getSaltados(),
+        ]);
+    }
+
+    public function relinkLocal(Request $request): JsonResponse
+    {
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
+        $request->validate(['archivo' => 'required|file|mimes:xlsx,xls,csv|max:51200']);
+        $import = new RelinkLocalImport();
+        Excel::import($import, $request->file('archivo'));
+
+        return response()->json([
+            'actualizados'  => $import->getActualizados(),
+            'creados'       => $import->getCreados(),
+            'sin_local'     => $import->getSinLocal(),
+            'no_encontrado' => $import->getNoEncontrado(),
         ]);
     }
 }

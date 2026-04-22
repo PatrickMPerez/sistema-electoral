@@ -38,11 +38,21 @@ type Paso = 'seleccion' | 'preview' | 'confirmando' | 'resultado';
 
         <!-- Formato esperado -->
         <mat-card style="margin-top:16px;background:#f5f5f5">
-          <mat-card-header><mat-card-title>Columnas requeridas en el archivo</mat-card-title></mat-card-header>
+          <mat-card-header><mat-card-title>Columnas del archivo (formato padrón electoral)</mat-card-title></mat-card-header>
           <mat-card-content>
-            <p style="font-family:monospace;font-size:13px;line-height:1.8">
-              <strong>Obligatorias:</strong> cedula | nombres | apellidos | departamento | distrito | seccional | local_votacion_id | mesa | numero_orden | zona_id | coordinador_id<br>
-              <strong>Opcionales:</strong>   jefe_zona_id | movimiento_id | telefono | localidad
+            <p style="font-family:monospace;font-size:13px;line-height:2">
+              <strong style="color:#b71c1c">Obligatorias:</strong>
+              <code>numero_ced</code> | <code>nombre</code> | <code>apellido</code> |
+              <code>desc_dep</code> | <code>desc_dis</code> | <code>desc_sec</code> |
+              <code>mesa</code> | <code>orden</code><br>
+              <strong style="color:#1565c0">Opcionales:</strong>
+              <code>desc_locanr</code> | <code>fecha_naci</code> | <code>direccion</code> |
+              <code>fecha_afil</code> | <code>nroreg</code> |
+              <code>cod_dpto</code> | <code>cod_dist</code> | <code>codigo_sec</code> | <code>slocal</code>
+            </p>
+            <p style="font-size:12px;color:#888;margin-top:4px">
+              La zona y el coordinador se asignan manualmente después de la importación.
+              El local de votación se vincula automáticamente si <code>desc_local</code> coincide con un local registrado.
             </p>
           </mat-card-content>
         </mat-card>
@@ -98,6 +108,18 @@ type Paso = 'seleccion' | 'preview' | 'confirmando' | 'resultado';
               <th mat-header-cell *matHeaderCellDef>Mesa</th>
               <td mat-cell *matCellDef="let r">{{ r.mesa }}</td>
             </ng-container>
+            <ng-container matColumnDef="local_nombre">
+              <th mat-header-cell *matHeaderCellDef>Local (desc_local)</th>
+              <td mat-cell *matCellDef="let r">{{ r.local_nombre || '—' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="local_encontrado">
+              <th mat-header-cell *matHeaderCellDef>Local vinculado</th>
+              <td mat-cell *matCellDef="let r">
+                <span [style.color]="r.local_encontrado === 'Sí' ? '#388e3c' : (r.local_encontrado === '—' ? '#999' : '#e65100')">
+                  {{ r.local_encontrado }}
+                </span>
+              </td>
+            </ng-container>
             <tr mat-header-row *matHeaderRowDef="previewCols"></tr>
             <tr mat-row *matRowDef="let row; columns: previewCols;"></tr>
           </table>
@@ -137,6 +159,49 @@ type Paso = 'seleccion' | 'preview' | 'confirmando' | 'resultado';
       <div class="error-banner"><mat-icon>error_outline</mat-icon> {{ errorGeneral() }}</div>
     }
   </div>
+
+  <!-- ── Vincular Locales de Votación ── -->
+  <div class="page-card" style="margin-top:16px">
+    <h3 style="margin-top:0;color:#1a237e">
+      <mat-icon style="vertical-align:middle;margin-right:8px">link</mat-icon>
+      Vincular Locales de Votación
+    </h3>
+    <p style="color:#666;font-size:14px">
+      Si los votantes importados no tienen Local de Votación asignado, subí el mismo Excel aquí.
+      El sistema buscará la columna <code>desc_locanr</code> y vinculará cada votante al local correspondiente
+      sin re-importar datos.
+    </p>
+
+    @if (!relinkResultado()) {
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button mat-raised-button color="accent" (click)="relinkInput.click()" [disabled]="relinkCargando()">
+          <mat-icon>upload</mat-icon>
+          {{ relinkCargando() ? 'Procesando...' : 'Subir Excel para vincular locales' }}
+        </button>
+        <input #relinkInput type="file" accept=".xlsx,.xls" style="display:none" (change)="onRelinkFile($event)">
+        <span style="font-size:13px;color:#888">Mismas columnas que el padrón importado</span>
+      </div>
+    }
+
+    @if (relinkResultado()) {
+      <div style="background:#e8f5e9;border-radius:8px;padding:16px;margin-top:12px">
+        <div style="font-weight:600;color:#2e7d32;margin-bottom:8px">Vinculación completada</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <span class="chip green">{{ relinkResultado().actualizados }} vinculados</span>
+          <span class="chip green">{{ relinkResultado().creados }} locales nuevos creados</span>
+          <span class="chip orange">{{ relinkResultado().sin_local }} sin local en Excel</span>
+          <span class="chip red">{{ relinkResultado().no_encontrado }} cédulas no encontradas</span>
+        </div>
+        <button mat-stroked-button style="margin-top:12px" (click)="relinkResultado.set(null)">
+          <mat-icon>refresh</mat-icon> Reintentar
+        </button>
+      </div>
+    }
+
+    @if (relinkError()) {
+      <div class="error-banner" style="margin-top:12px"><mat-icon>error_outline</mat-icon> {{ relinkError() }}</div>
+    }
+  </div>
   `,
   styles: [`
     .drop-zone {
@@ -161,13 +226,16 @@ type Paso = 'seleccion' | 'preview' | 'confirmando' | 'resultado';
 export class ImportarComponent {
   private api = inject(ApiService);
 
-  paso        = signal<Paso>('seleccion');
-  previewData = signal<any>({});
-  resultado   = signal<any>({});
+  paso         = signal<Paso>('seleccion');
+  previewData  = signal<any>({});
+  resultado    = signal<any>({});
   errorGeneral = signal('');
+  relinkCargando  = signal(false);
+  relinkResultado = signal<any>(null);
+  relinkError     = signal('');
   private file: File | null = null;
 
-  previewCols = ['numero_orden','cedula','nombres','apellidos','departamento','distrito','seccional','mesa'];
+  previewCols = ['numero_orden','cedula','apellidos','nombres','departamento','distrito','seccional','mesa','local_nombre','local_encontrado'];
 
   onFile(event: Event): void {
     const f = (event.target as HTMLInputElement).files?.[0];
@@ -197,6 +265,21 @@ export class ImportarComponent {
       error: err => {
         this.errorGeneral.set(err?.error?.message ?? 'Error al importar');
         this.paso.set('preview');
+      }
+    });
+  }
+
+  onRelinkFile(event: Event): void {
+    const f = (event.target as HTMLInputElement).files?.[0];
+    if (!f) return;
+    this.relinkCargando.set(true);
+    this.relinkError.set('');
+    this.relinkResultado.set(null);
+    this.api.relinkLocal(f).subscribe({
+      next: data => { this.relinkResultado.set(data); this.relinkCargando.set(false); },
+      error: err => {
+        this.relinkError.set(err?.error?.message ?? 'Error al procesar el archivo');
+        this.relinkCargando.set(false);
       }
     });
   }

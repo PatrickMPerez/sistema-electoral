@@ -19,8 +19,8 @@ class StoreVotanteRequest extends FormRequest
             'mesa'             => 'required|integer|min:1',
             'numero_orden'     => 'required|integer|min:1|unique:votantes,numero_orden',
             'local_votacion_id'=> 'required|exists:locales_votacion,id',
-            'zona_id'          => 'required|exists:zonas,id',
-            'coordinador_id'   => 'required|exists:coordinadores,id',
+            'zona_id'          => 'nullable|exists:zonas,id',
+            'coordinador_id'   => 'nullable|exists:coordinadores,id',
             'jefe_zona_id'     => 'nullable|exists:jefes_zona,id',
             'movimiento_id'    => 'nullable|exists:movimientos,id',
             'localidad'        => 'nullable|string|max:255',
@@ -41,8 +41,7 @@ class StoreVotanteRequest extends FormRequest
             'numero_orden.required'    => 'El número de orden es obligatorio.',
             'numero_orden.unique'      => 'El número de orden ya está asignado.',
             'local_votacion_id.required' => 'El local de votación es obligatorio.',
-            'zona_id.required'         => 'La zona es obligatoria.',
-            'coordinador_id.required'  => 'El coordinador es obligatorio.',
+            'coordinador_id.exists'    => 'El coordinador seleccionado no existe.',
         ];
     }
 }

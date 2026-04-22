@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -16,8 +16,10 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatBadgeModule } from '@angular/material/badge';
 import { ApiService } from '../../core/services/api.service';
 import { GeografiaService } from '../../core/services/geografia.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Votante, PaginatedResponse } from '../../core/models/votante.model';
 import { VotanteDialogComponent } from './votante-dialog.component';
+import { AsignarVotanteDialogComponent } from './asignar-votante-dialog.component';
 
 @Component({
   selector: 'app-votantes',
@@ -55,7 +57,7 @@ import { VotanteDialogComponent } from './votante-dialog.component';
           <mat-icon matSuffix>search</mat-icon>
         </mat-form-field>
 
-        <!-- Nivel 1: Departamento -->
+        <!-- Departamento -->
         <mat-form-field appearance="outline">
           <mat-label>Departamento</mat-label>
           <mat-select [(ngModel)]="filtros.departamento"
@@ -67,7 +69,7 @@ import { VotanteDialogComponent } from './votante-dialog.component';
           </mat-select>
         </mat-form-field>
 
-        <!-- Nivel 2: Distrito (filtrado) -->
+        <!-- Distrito -->
         <mat-form-field appearance="outline">
           <mat-label>Distrito</mat-label>
           <mat-select [(ngModel)]="filtros.distrito"
@@ -83,7 +85,7 @@ import { VotanteDialogComponent } from './votante-dialog.component';
           }
         </mat-form-field>
 
-        <!-- Nivel 3: Zona -->
+        <!-- Zona -->
         <mat-form-field appearance="outline">
           <mat-label>Zona</mat-label>
           <mat-select [(ngModel)]="filtros.zona_id" (ngModelChange)="onFiltro()">
@@ -99,27 +101,80 @@ import { VotanteDialogComponent } from './votante-dialog.component';
           <mat-label>Estado</mat-label>
           <mat-select [(ngModel)]="filtros.estado_votacion" (ngModelChange)="onFiltro()">
             <mat-option value="">Todos</mat-option>
-            <mat-option value="registrado">Pendiente</mat-option>
+            <mat-option value="registrado">Pendiente (no votó)</mat-option>
             <mat-option value="ya_voto">Ya votó</mat-option>
           </mat-select>
         </mat-form-field>
 
-        <!-- Botón limpiar -->
+        <!-- Coordinador (solo jefe_zona y administrador) -->
+        @if (mostrarCoordinador()) {
+          <mat-form-field appearance="outline" class="span-2">
+            <mat-label>Coordinador</mat-label>
+            <mat-select [(ngModel)]="filtros.coordinador_id" (ngModelChange)="onFiltro()">
+              <mat-option value="">Todos los coordinadores</mat-option>
+              <mat-option value="sin_asignar">— Sin coordinador asignado —</mat-option>
+              @for (c of coordinadores(); track c.id) {
+                <mat-option [value]="c.id">{{ c.nombre_completo }}</mat-option>
+              }
+            </mat-select>
+            <mat-icon matSuffix>supervisor_account</mat-icon>
+          </mat-form-field>
+        }
+
+        <!-- Acciones -->
         <div class="filter-actions span-2">
           <button mat-stroked-button color="warn" (click)="limpiarFiltros()">
             <mat-icon>clear</mat-icon> Limpiar filtros
           </button>
-          <button mat-raised-button color="primary" (click)="abrirDialog()">
-            <mat-icon>person_add</mat-icon> Nuevo Votante
-          </button>
+          @if (esAdmin()) {
+            <button mat-raised-button color="primary" (click)="abrirDialog()">
+              <mat-icon>person_add</mat-icon> Nuevo Votante
+            </button>
+          }
         </div>
       </div>
     </mat-expansion-panel>
 
-    <!-- ══ Tabla ══ -->
+    <!-- ══ Carga ══ -->
     @if (loading()) {
       <div class="loading-wrap"><mat-spinner diameter="40"></mat-spinner></div>
     } @else {
+
+      <!-- ══ Vista móvil: tarjetas ══ -->
+      <div class="mobile-cards">
+        @if (votantes().length === 0) {
+          <div class="no-data">No se encontraron votantes con los filtros seleccionados</div>
+        }
+        @for (v of votantes(); track v.id) {
+          <div class="voter-card">
+            <div class="card-top">
+              <div class="card-info">
+                <span class="card-nombre">{{ v.nombres }} {{ v.apellidos }}</span>
+                <span class="card-cedula">CI: {{ v.cedula }}</span>
+                @if (mostrarCoordinador()) {
+                  <span class="card-coord">
+                    <mat-icon class="icon-sm">supervisor_account</mat-icon>
+                    {{ v.coordinador?.nombre_completo ?? '—' }}
+                  </span>
+                }
+              </div>
+              <span [class]="v.estado_votacion === 'ya_voto' ? 'badge-voto' : 'badge-pend'">
+                {{ v.estado_votacion === 'ya_voto' ? '✓ Votó' : '○ Pendiente' }}
+              </span>
+            </div>
+            <div class="card-bottom">
+              <span class="card-meta">Mesa {{ v.mesa ?? '—' }} · {{ v.distrito ?? '—' }}</span>
+              <button mat-icon-button color="primary"
+                      [matTooltip]="esAdmin() ? 'Editar' : 'Asignar'"
+                      (click)="abrirDialog(v)">
+                <mat-icon>{{ esAdmin() ? 'edit' : 'how_to_reg' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- ══ Vista escritorio: tabla ══ -->
       <div class="table-wrap">
         <table mat-table [dataSource]="votantes()" class="mat-elevation-z0 full-table">
 
@@ -141,6 +196,11 @@ import { VotanteDialogComponent } from './votante-dialog.component';
           <ng-container matColumnDef="apellidos">
             <th mat-header-cell *matHeaderCellDef>Apellidos</th>
             <td mat-cell *matCellDef="let v">{{ v.apellidos }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="coordinador">
+            <th mat-header-cell *matHeaderCellDef>Coordinador</th>
+            <td mat-cell *matCellDef="let v">{{ v.coordinador?.nombre_completo ?? '—' }}</td>
           </ng-container>
 
           <ng-container matColumnDef="departamento">
@@ -180,16 +240,18 @@ import { VotanteDialogComponent } from './votante-dialog.component';
           <ng-container matColumnDef="acciones">
             <th mat-header-cell *matHeaderCellDef></th>
             <td mat-cell *matCellDef="let v">
-              <button mat-icon-button color="primary" matTooltip="Editar" (click)="abrirDialog(v)">
-                <mat-icon>edit</mat-icon>
+              <button mat-icon-button color="primary"
+                      [matTooltip]="esAdmin() ? 'Editar' : 'Asignar'"
+                      (click)="abrirDialog(v)">
+                <mat-icon>{{ esAdmin() ? 'edit' : 'how_to_reg' }}</mat-icon>
               </button>
             </td>
           </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="columns; sticky: true"></tr>
-          <tr mat-row *matRowDef="let row; columns: columns;"></tr>
+          <tr mat-header-row *matHeaderRowDef="columns()"></tr>
+          <tr mat-row *matRowDef="let row; columns: columns();"></tr>
           <tr class="mat-row" *matNoDataRow>
-            <td class="mat-cell" [attr.colspan]="columns.length"
+            <td class="mat-cell" [attr.colspan]="columns().length"
                 style="text-align:center;padding:32px;color:#999">
               No se encontraron votantes con los filtros seleccionados
             </td>
@@ -237,58 +299,137 @@ import { VotanteDialogComponent } from './votante-dialog.component';
       margin-left: 8px;
     }
     .loading-wrap { display: flex; justify-content: center; padding: 48px; }
+
+    /* ── Desktop: tabla ── */
+    .mobile-cards { display: none; }
     .table-wrap { overflow-x: auto; }
-    .full-table { width: 100%; min-width: 1100px; }
+    .full-table { width: 100%; min-width: 960px; }
     th.mat-header-cell {
       font-weight: 700;
       white-space: nowrap;
       background: #fafafa;
     }
     td.mat-cell { white-space: nowrap; font-size: 13px; }
+
+    /* ── Badges de estado ── */
     .badge-voto {
       background: #e8f5e9; color: #2e7d32;
-      padding: 2px 10px; border-radius: 12px;
+      padding: 3px 10px; border-radius: 12px;
       font-size: 12px; font-weight: 600;
     }
     .badge-pend {
       background: #fff3e0; color: #e65100;
-      padding: 2px 10px; border-radius: 12px;
+      padding: 3px 10px; border-radius: 12px;
       font-size: 12px; font-weight: 600;
     }
+
+    /* ── Paginador ── */
     .paginator-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 8px;
+      flex-wrap: wrap;
+      gap: 8px;
     }
     .total-label { font-size: 13px; color: #555; }
+
+    /* ── Mobile: tarjetas ── */
+    @media (max-width: 767px) {
+      .mobile-cards  { display: block; }
+      .table-wrap    { display: none; }
+      .filters-grid  { grid-template-columns: 1fr; }
+      .span-2        { grid-column: 1; }
+      .filter-actions { flex-direction: column; gap: 8px; align-items: stretch; }
+      .filter-actions button { width: 100%; }
+    }
+    .voter-card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .card-nombre {
+      font-weight: 600;
+      font-size: 15px;
+      color: #1a237e;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-cedula { font-size: 13px; color: #666; }
+    .card-coord {
+      font-size: 12px;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .icon-sm { font-size: 14px !important; width: 14px !important; height: 14px !important; }
+    .card-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #f0f0f0;
+      padding-top: 8px;
+    }
+    .card-meta { font-size: 12px; color: #888; }
+    .no-data { text-align: center; padding: 32px; color: #999; }
   `]
 })
 export class VotantesComponent implements OnInit {
   private api    = inject(ApiService);
   private dialog = inject(MatDialog);
   private geo    = inject(GeografiaService);
+  private auth   = inject(AuthService);
 
-  columns  = ['numero_orden','cedula','nombres','apellidos','departamento','distrito','seccional','local','mesa','estado','acciones'];
-  votantes = signal<Votante[]>([]);
-  total    = signal(0);
-  loading  = signal(true);
-  perPage  = 25;
-  page     = 1;
+  esAdmin = computed(() => this.auth.role() === 'administrador');
+  mostrarCoordinador = computed(() =>
+    this.auth.role() === 'jefe_zona' || this.auth.role() === 'administrador'
+  );
+
+  columns = computed(() => {
+    const cols = ['numero_orden', 'cedula', 'nombres', 'apellidos'];
+    if (this.mostrarCoordinador()) cols.push('coordinador');
+    cols.push('departamento', 'distrito', 'seccional', 'local', 'mesa', 'estado', 'acciones');
+    return cols;
+  });
+
+  votantes      = signal<Votante[]>([]);
+  total         = signal(0);
+  loading       = signal(true);
+  coordinadores = signal<any[]>([]);
+  perPage       = 25;
+  page          = 1;
   filtrosAbiertos = true;
 
-  // Catálogos geográficos
-  departamentos      = signal<string[]>([]);
+  departamentos       = signal<string[]>([]);
   distritosFiltrables = signal<string[]>([]);
-  zonas              = signal<any[]>([]);
-  zonasFiltradas     = signal<any[]>([]);
+  zonas               = signal<any[]>([]);
+  zonasFiltradas      = signal<any[]>([]);
 
   filtros = {
-    buscar: '',
-    departamento: '',
-    distrito: '',
-    zona_id: '' as string | number,
+    buscar:          '',
+    departamento:    '',
+    distrito:        '',
+    zona_id:         '' as string | number,
     estado_votacion: '',
+    coordinador_id:  '' as string | number,
   };
 
   ngOnInit(): void {
@@ -297,15 +438,16 @@ export class VotantesComponent implements OnInit {
       this.zonas.set(z);
       this.zonasFiltradas.set(z);
     });
+    if (this.mostrarCoordinador()) {
+      this.api.getCoordinadores().subscribe(c => this.coordinadores.set(c));
+    }
     this.cargar();
   }
 
-  /** Cuenta cuántos filtros están activos */
   filtrosActivos(): number {
     return Object.values(this.filtros).filter(v => v !== '' && v !== null).length;
   }
 
-  /** Al cambiar departamento → filtra distritos y zonas */
   onDepartamentoFiltro(event: MatSelectChange): void {
     const dpto = event.value as string;
     this.filtros.distrito = '';
@@ -327,11 +469,12 @@ export class VotantesComponent implements OnInit {
   onFiltro(): void { this.page = 1; this.cargar(); }
 
   limpiarFiltros(): void {
-    this.filtros.buscar = '';
-    this.filtros.departamento = '';
-    this.filtros.distrito = '';
-    this.filtros.zona_id = '';
+    this.filtros.buscar          = '';
+    this.filtros.departamento    = '';
+    this.filtros.distrito        = '';
+    this.filtros.zona_id         = '';
     this.filtros.estado_votacion = '';
+    this.filtros.coordinador_id  = '';
     this.distritosFiltrables.set([]);
     this.zonasFiltradas.set(this.zonas());
     this.onFiltro();
@@ -361,11 +504,23 @@ export class VotantesComponent implements OnInit {
   }
 
   abrirDialog(votante?: Votante): void {
-    const ref = this.dialog.open(VotanteDialogComponent, {
-      width: '700px',
-      maxHeight: '90vh',
-      data: votante ?? null
-    });
-    ref.afterClosed().subscribe(ok => { if (ok) this.cargar(); });
+    const role = this.auth.role();
+    const usarAsignar = role === 'jefe_zona' || role === 'coordinador';
+
+    if (usarAsignar && votante) {
+      const ref = this.dialog.open(AsignarVotanteDialogComponent, {
+        width: '560px',
+        maxHeight: '90vh',
+        data: votante
+      });
+      ref.afterClosed().subscribe(ok => { if (ok) this.cargar(); });
+    } else {
+      const ref = this.dialog.open(VotanteDialogComponent, {
+        width: '700px',
+        maxHeight: '90vh',
+        data: votante ?? null
+      });
+      ref.afterClosed().subscribe(ok => { if (ok) this.cargar(); });
+    }
   }
 }

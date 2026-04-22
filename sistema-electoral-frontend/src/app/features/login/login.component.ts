@@ -23,7 +23,7 @@ import { AuthService } from '../../core/services/auth.service';
     <mat-card class="login-card">
       <div class="login-header">
         <mat-icon class="logo">how_to_vote</mat-icon>
-        <h1>Sistema Electoral</h1>
+        <h1>Boca de Urna</h1>
         <p>Control de Votación</p>
       </div>
 

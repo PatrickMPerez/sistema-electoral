@@ -14,7 +14,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'username', 'email', 'password',
-        'role', 'activo', 'zona_id', 'jefe_zona_id', 'coordinador_id',
+        'role', 'activo', 'zona_id', 'jefe_zona_id', 'coordinador_id', 'veedor_id', 'mesa',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -35,6 +35,7 @@ class User extends Authenticatable
     public function zona()        { return $this->belongsTo(Zona::class); }
     public function jefeZona()    { return $this->belongsTo(JefeZona::class); }
     public function coordinador() { return $this->belongsTo(Coordinador::class); }
+    public function veedor()      { return $this->belongsTo(Veedor::class); }
     public function marcaciones(): HasMany { return $this->hasMany(MarcacionVoto::class, 'usuario_veedor_id'); }
     public function auditoria(): HasMany   { return $this->hasMany(Auditoria::class, 'usuario_id'); }
 }

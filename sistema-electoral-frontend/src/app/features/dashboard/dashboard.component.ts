@@ -84,41 +84,61 @@ import { MonitoreoResumen, ZonaResumen } from '../../core/models/votante.model';
       </mat-card>
     }
 
-    <!-- Tabla por zona (solo admin/jefe) -->
-    @if (isAdmin() && zonas().length) {
+    <!-- Tabla por coordinador (admin y jefe_zona) -->
+    @if (isAdmin() && coordinadores().length) {
       <mat-card class="page-card">
         <mat-card-header>
-          <mat-card-title>Resultados por Zona</mat-card-title>
+          <mat-card-title>
+            <mat-icon style="vertical-align:middle;margin-right:6px;color:#1a237e">supervisor_account</mat-icon>
+            Avance por Coordinador
+          </mat-card-title>
           <span class="spacer"></span>
           <a mat-button color="primary" routerLink="/faltantes">Ver Faltantes</a>
         </mat-card-header>
         <mat-card-content style="padding-top:8px">
-          <table mat-table [dataSource]="zonas()" style="width:100%">
+          <table mat-table [dataSource]="coordinadores()" style="width:100%">
             <ng-container matColumnDef="nombre">
+              <th mat-header-cell *matHeaderCellDef>Coordinador</th>
+              <td mat-cell *matCellDef="let c" style="font-weight:500">{{ c.nombre }}</td>
+            </ng-container>
+            <ng-container matColumnDef="zona">
               <th mat-header-cell *matHeaderCellDef>Zona</th>
-              <td mat-cell *matCellDef="let z">{{ z.nombre }}</td>
+              <td mat-cell *matCellDef="let c" style="font-size:13px;color:#666">{{ c.zona }}</td>
             </ng-container>
             <ng-container matColumnDef="total">
-              <th mat-header-cell *matHeaderCellDef>Total</th>
-              <td mat-cell *matCellDef="let z">{{ z.total }}</td>
+              <th mat-header-cell *matHeaderCellDef style="text-align:right">Total</th>
+              <td mat-cell *matCellDef="let c" style="text-align:right">{{ c.total }}</td>
             </ng-container>
             <ng-container matColumnDef="ya_votaron">
-              <th mat-header-cell *matHeaderCellDef>Votaron</th>
-              <td mat-cell *matCellDef="let z"><span class="badge-voto">{{ z.ya_votaron }}</span></td>
-            </ng-container>
-            <ng-container matColumnDef="pendientes">
-              <th mat-header-cell *matHeaderCellDef>Pendientes</th>
-              <td mat-cell *matCellDef="let z"><span class="badge-pend">{{ z.pendientes }}</span></td>
-            </ng-container>
-            <ng-container matColumnDef="porcentaje">
-              <th mat-header-cell *matHeaderCellDef>%</th>
-              <td mat-cell *matCellDef="let z">
-                <mat-progress-bar mode="determinate" [value]="z.porcentaje" style="max-width:120px;display:inline-block"></mat-progress-bar>
-                {{ z.porcentaje | number:'1.0-0' }}%
+              <th mat-header-cell *matHeaderCellDef style="text-align:right">Votaron</th>
+              <td mat-cell *matCellDef="let c" style="text-align:right">
+                <span class="badge-voto">{{ c.ya_votaron }}</span>
               </td>
             </ng-container>
-            <tr mat-header-row *matHeaderRowDef="zonaCols"></tr>
-            <tr mat-row *matRowDef="let row; columns: zonaCols;"></tr>
+            <ng-container matColumnDef="pendientes">
+              <th mat-header-cell *matHeaderCellDef style="text-align:right">Pendientes</th>
+              <td mat-cell *matCellDef="let c" style="text-align:right">
+                <span class="badge-pend">{{ c.pendientes }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="porcentaje">
+              <th mat-header-cell *matHeaderCellDef>Avance</th>
+              <td mat-cell *matCellDef="let c">
+                <div style="display:flex;align-items:center;gap:8px;min-width:160px">
+                  <mat-progress-bar mode="determinate" [value]="c.porcentaje"
+                    style="flex:1;height:8px;border-radius:4px"></mat-progress-bar>
+                  <span style="font-size:12px;font-weight:600;min-width:36px">{{ c.porcentaje | number:'1.0-0' }}%</span>
+                </div>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="coordCols"></tr>
+            <tr mat-row *matRowDef="let row; columns: coordCols;"></tr>
+            <tr class="mat-row" *matNoDataRow>
+              <td class="mat-cell" [attr.colspan]="coordCols.length"
+                  style="text-align:center;padding:24px;color:#999">
+                Sin coordinadores registrados
+              </td>
+            </tr>
           </table>
         </mat-card-content>
       </mat-card>
@@ -142,16 +162,16 @@ export class DashboardComponent implements OnInit {
   private api  = inject(ApiService);
   private auth = inject(AuthService);
 
-  resumen = signal<MonitoreoResumen | null>(null);
-  zonas   = signal<ZonaResumen[]>([]);
-  zonaCols = ['nombre','total','ya_votaron','pendientes','porcentaje'];
+  resumen      = signal<MonitoreoResumen | null>(null);
+  coordinadores = signal<any[]>([]);
+  coordCols    = ['nombre', 'zona', 'total', 'ya_votaron', 'pendientes', 'porcentaje'];
 
-  isAdmin = () => this.auth.hasRole('administrador','jefe_zona');
+  isAdmin = () => this.auth.hasRole('administrador', 'jefe_zona');
 
   ngOnInit(): void {
     this.api.getResumen().subscribe(r => this.resumen.set(r));
     if (this.isAdmin()) {
-      this.api.getPorZona().subscribe(z => this.zonas.set(z));
+      this.api.getPorCoordinador().subscribe(c => this.coordinadores.set(c));
     }
   }
 }

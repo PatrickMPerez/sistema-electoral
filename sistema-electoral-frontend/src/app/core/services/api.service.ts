@@ -41,13 +41,19 @@ export class ApiService {
     return this.http.post(`${this.base}/votantes/importar/confirmar`, fd);
   }
 
-  // ── Control Votación ────────────────────────────────────────
-  buscarVotante(numeroOrden: string): Observable<any> {
-    return this.http.get(`${this.base}/control-votacion/buscar/${numeroOrden}`);
+  relinkLocal(file: File): Observable<any> {
+    const fd = new FormData();
+    fd.append('archivo', file);
+    return this.http.post(`${this.base}/votantes/importar/relink-local`, fd);
   }
 
-  marcarVoto(numero_orden: number): Observable<any> {
-    return this.http.post(`${this.base}/control-votacion/marcar`, { numero_orden });
+  // ── Control Votación ────────────────────────────────────────
+  buscarVotante(data: { numero_orden: string; cedula: string; mesa: string }): Observable<any> {
+    return this.http.post(`${this.base}/control-votacion/buscar`, data);
+  }
+
+  marcarVoto(data: { numero_orden: number | string; cedula: string; mesa: string; observacion?: string }): Observable<any> {
+    return this.http.post(`${this.base}/control-votacion/marcar`, data);
   }
 
   // ── Monitoreo ───────────────────────────────────────────────
@@ -65,10 +71,21 @@ export class ApiService {
     return this.http.get<ZonaResumen[]>(`${this.base}/monitoreo/por-zona`);
   }
 
+  getPorCoordinador(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/monitoreo/por-coordinador`);
+  }
+
   // ── Catálogos ───────────────────────────────────────────────
   getZonas(): Observable<any[]>         { return this.http.get<any[]>(`${this.base}/zonas`); }
   getJefesZona(): Observable<any[]>     { return this.http.get<any[]>(`${this.base}/jefes-zona`); }
-  getCoordinadores(): Observable<any[]> { return this.http.get<any[]>(`${this.base}/coordinadores`); }
+  getCoordinadores(todos = false): Observable<any[]> {
+    const params = todos ? new HttpParams().set('todos', '1') : new HttpParams();
+    return this.http.get<any[]>(`${this.base}/coordinadores`, { params });
+  }
+  getVeedores(todos = false): Observable<any[]> {
+    const params = todos ? new HttpParams().set('todos', '1') : new HttpParams();
+    return this.http.get<any[]>(`${this.base}/veedores`, { params });
+  }
   getMovimientos(): Observable<any[]>   { return this.http.get<any[]>(`${this.base}/movimientos`); }
   getLocales(): Observable<any[]>       { return this.http.get<any[]>(`${this.base}/locales`); }
 
@@ -78,6 +95,8 @@ export class ApiService {
   updateJefeZona(id: number, data: any): Observable<any>  { return this.http.put(`${this.base}/jefes-zona/${id}`, data); }
   createCoordinador(data: any): Observable<any>  { return this.http.post(`${this.base}/coordinadores`, data); }
   updateCoordinador(id: number, data: any): Observable<any>  { return this.http.put(`${this.base}/coordinadores/${id}`, data); }
+  createVeedor(data: any): Observable<any>       { return this.http.post(`${this.base}/veedores`, data); }
+  updateVeedor(id: number, data: any): Observable<any>  { return this.http.put(`${this.base}/veedores/${id}`, data); }
   createLocal(data: any): Observable<any>        { return this.http.post(`${this.base}/locales`, data); }
   updateLocal(id: number, data: any): Observable<any>  { return this.http.put(`${this.base}/locales/${id}`, data); }
   createMovimiento(data: any): Observable<any>   { return this.http.post(`${this.base}/movimientos`, data); }
@@ -135,6 +154,13 @@ export class ApiService {
 
   descargarPadronZona(zonaId: number): Observable<Blob> {
     return this.http.get(`${this.base}/reportes/padron-zona/${zonaId}`, {
+      params: new HttpParams().set('exportar', '1'),
+      responseType: 'blob'
+    });
+  }
+
+  descargarPadronJefeZona(id: number): Observable<Blob> {
+    return this.http.get(`${this.base}/reportes/padron-jefe-zona/${id}`, {
       params: new HttpParams().set('exportar', '1'),
       responseType: 'blob'
     });

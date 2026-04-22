@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, inject, signal } from '@angular/core';
+import { Component, Inject, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { ApiService } from '../../core/services/api.service';
 import { GeografiaService } from '../../core/services/geografia.service';
 import { Votante } from '../../core/models/votante.model';
@@ -19,7 +20,8 @@ import { Votante } from '../../core/models/votante.model';
   imports: [
     CommonModule, ReactiveFormsModule, MatDialogModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatProgressSpinnerModule, MatDividerModule, MatIconModule
+    MatButtonModule, MatProgressSpinnerModule, MatDividerModule, MatIconModule,
+    MatAutocompleteModule
   ],
   template: `
   <h2 mat-dialog-title>{{ data ? 'Editar' : 'Nuevo' }} Votante</h2>
@@ -74,8 +76,7 @@ import { Votante } from '../../core/models/votante.model';
         <!-- Nivel 2: Distrito (filtrado por departamento) -->
         <mat-form-field appearance="outline">
           <mat-label>Distrito *</mat-label>
-          <mat-select formControlName="distrito"
-                      [disabled]="!distritosDisponibles().length">
+          <mat-select formControlName="distrito">
             <mat-option value="">— Seleccione distrito —</mat-option>
             @for (d of distritosDisponibles(); track d) {
               <mat-option [value]="d">{{ d }}</mat-option>
@@ -87,19 +88,15 @@ import { Votante } from '../../core/models/votante.model';
           <mat-error *ngIf="form.get('distrito')?.hasError('required')">Requerido</mat-error>
         </mat-form-field>
 
-        <!-- Nivel 3: Zona (filtrada por departamento) -->
+        <!-- Zona (opcional, se asigna manualmente después) -->
         <mat-form-field appearance="outline">
-          <mat-label>Zona *</mat-label>
+          <mat-label>Zona</mat-label>
           <mat-select formControlName="zona_id">
-            <mat-option [value]="null">— Seleccione zona —</mat-option>
+            <mat-option [value]="null">— Sin asignar —</mat-option>
             @for (z of zonasFiltradas(); track z.id) {
               <mat-option [value]="z.id">{{ z.nombre_zona }}</mat-option>
             }
           </mat-select>
-          @if (form.get('departamento')?.value && !zonasFiltradas().length) {
-            <mat-hint style="color:#e65100">No hay zona para este departamento</mat-hint>
-          }
-          <mat-error *ngIf="form.get('zona_id')?.hasError('required')">Requerido</mat-error>
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -136,14 +133,20 @@ import { Votante } from '../../core/models/votante.model';
       <p class="section-label">Asignación</p>
       <div class="form-grid">
         <mat-form-field appearance="outline">
-          <mat-label>Coordinador *</mat-label>
-          <mat-select formControlName="coordinador_id">
-            <mat-option [value]="null">— Seleccione coordinador —</mat-option>
-            @for (c of coordinadores(); track c.id) {
-              <mat-option [value]="c.id">{{ c.nombre_completo }}</mat-option>
+          <mat-label>Coordinador</mat-label>
+          <input matInput [matAutocomplete]="autoCoord"
+                 [value]="displayCoord(form.get('coordinador_id')?.value)"
+                 (input)="filtroCoord.set($any($event.target).value)"
+                 (focus)="filtroCoord.set('')"
+                 placeholder="Buscar por nombre o cédula...">
+          <mat-icon matSuffix>search</mat-icon>
+          <mat-autocomplete #autoCoord="matAutocomplete"
+                            (optionSelected)="onCoordinadorSelected($event.option.value)">
+            <mat-option [value]="null">— Sin asignar —</mat-option>
+            @for (c of coordFiltrados(); track c.id) {
+              <mat-option [value]="c.id">{{ c.nombre_completo }}{{ c.cedula ? ' — ' + c.cedula : '' }}</mat-option>
             }
-          </mat-select>
-          <mat-error *ngIf="form.get('coordinador_id')?.hasError('required')">Requerido</mat-error>
+          </mat-autocomplete>
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -154,6 +157,9 @@ import { Votante } from '../../core/models/votante.model';
               <mat-option [value]="j.id">{{ j.nombre_completo }}</mat-option>
             }
           </mat-select>
+          @if (jefeZonalAutoAsignado()) {
+            <mat-hint style="color:#388e3c">Asignado automáticamente por coordinador</mat-hint>
+          }
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -236,6 +242,18 @@ export class VotanteDialogComponent implements OnInit {
 
   loading = signal(false);
   error   = signal('');
+  jefeZonalAutoAsignado = signal(false);
+  filtroCoord = signal('');
+
+  coordFiltrados = computed(() => {
+    const q = this.filtroCoord().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (!q) return this.coordinadores();
+    return this.coordinadores().filter(c => {
+      const nombre = (c.nombre_completo ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const cedula = (c.cedula ?? '').toLowerCase();
+      return nombre.includes(q) || cedula.includes(q);
+    });
+  });
 
   form = this.fb.group({
     // Personales
@@ -252,22 +270,19 @@ export class VotanteDialogComponent implements OnInit {
     mesa:              [null as number | null, Validators.required],
     numero_orden:      [null as number | null, Validators.required],
     // Asignación
-    zona_id:           [null as number | null, Validators.required],
-    coordinador_id:    [null as number | null, Validators.required],
-    jefe_zona_id:      [null as number | null],
+    zona_id:           [null as number | null],
+    coordinador_id:    [null as number | null],
+    jefe_zona_id:      [{ value: null as number | null, disabled: true }],
     movimiento_id:     [null as number | null],
   });
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: Votante | null) {}
 
   ngOnInit(): void {
-    // Cargar catálogo geográfico estático
     this.departamentos.set(this.geo.getDepartamentos());
 
-    // Cargar catálogos del backend en paralelo
     this.api.getZonas().subscribe(z => {
       this.zonas.set(z);
-      // Si editando, filtrar zonas por dpto ya cargado
       if (this.data?.departamento) {
         this.filtrarZonas(this.data.departamento);
       } else {
@@ -280,23 +295,50 @@ export class VotanteDialogComponent implements OnInit {
     this.api.getLocales().subscribe(l => this.locales.set(l));
 
     if (this.data) {
-      this.form.patchValue(this.data as any);
-      // Restaurar distritos si editando
-      if (this.data.departamento) {
-        this.distritosDisponibles.set(
-          this.geo.getDistritos(this.data.departamento)
-        );
+      // Normalizar departamento (ej: "CONCEPCION" → "CONCEPCIÓN") para
+      // que coincida con las opciones del mat-select que tienen tildes
+      const deptNorm = this.geo.matchDepartamento(this.data.departamento ?? '');
+
+      // Primero carga los distritos para que el select los tenga disponibles
+      if (deptNorm) {
+        this.distritosDisponibles.set(this.geo.getDistritos(deptNorm));
+      }
+
+      // patchValue con el departamento normalizado
+      // jefe_zona_id está disabled, hay que usar enable temporal o patchValue directamente
+      this.form.patchValue({ ...(this.data as any), departamento: deptNorm });
+      this.form.get('jefe_zona_id')?.setValue((this.data as any).jefe_zona_id ?? null);
+      if ((this.data as any).coordinador_id) {
+        this.jefeZonalAutoAsignado.set(true);
       }
     }
   }
 
-  /** Nivel 1 → actualiza Nivel 2 (distritos) y Nivel 3 (zonas) */
+  onCoordinadorSelected(coordId: number | null): void {
+    this.form.get('coordinador_id')?.setValue(coordId);
+    this.filtroCoord.set('');
+    if (!coordId) {
+      this.jefeZonalAutoAsignado.set(false);
+      return;
+    }
+    const coord = this.coordinadores().find(c => c.id === coordId);
+    if (coord?.jefe_zona_id) {
+      this.form.get('jefe_zona_id')?.setValue(coord.jefe_zona_id);
+      this.jefeZonalAutoAsignado.set(true);
+    } else {
+      this.jefeZonalAutoAsignado.set(false);
+    }
+  }
+
+  displayCoord(id: number | null | undefined): string {
+    if (!id) return '';
+    const c = this.coordinadores().find(x => x.id === id);
+    return c ? c.nombre_completo : '';
+  }
+
   onDepartamentoChange(event: MatSelectChange): void {
     const dpto = event.value as string;
-
-    // Resetear campos dependientes
     this.form.patchValue({ distrito: '', zona_id: null });
-
     if (dpto) {
       this.distritosDisponibles.set(this.geo.getDistritos(dpto));
       this.filtrarZonas(dpto);
@@ -306,11 +348,10 @@ export class VotanteDialogComponent implements OnInit {
     }
   }
 
-  /** Filtra zonas cuyo nombre contenga el departamento seleccionado */
   private filtrarZonas(dpto: string): void {
-    const keyword = dpto.split(' ')[0].toUpperCase(); // ej: "CONCEPCIÓN"
+    const keyword = dpto.normalize('NFD').replace(/[̀-ͯ]/g, '').split(' ')[0].toUpperCase();
     const filtradas = this.zonas().filter(z =>
-      z.nombre_zona.toUpperCase().includes(keyword)
+      z.nombre_zona.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().includes(keyword)
     );
     this.zonasFiltradas.set(filtradas.length ? filtradas : this.zonas());
   }
@@ -321,8 +362,8 @@ export class VotanteDialogComponent implements OnInit {
     this.error.set('');
 
     const obs = this.data
-      ? this.api.updateVotante(this.data.id, this.form.value as any)
-      : this.api.createVotante(this.form.value as any);
+      ? this.api.updateVotante(this.data.id, this.form.getRawValue() as any)
+      : this.api.createVotante(this.form.getRawValue() as any);
 
     obs.subscribe({
       next: () => this.ref.close(true),

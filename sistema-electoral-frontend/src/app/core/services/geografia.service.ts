@@ -190,15 +190,31 @@ export class GeografiaService {
   /** Distritos del departamento seleccionado, ordenados alfabéticamente */
   getDistritos(departamento: string): string[] {
     const found = this.data.find(
-      d => d.nombre === departamento
+      d => this.norm(d.nombre) === this.norm(departamento)
     );
     return found
       ? [...found.distritos].sort((a, b) => a.localeCompare(b))
       : [];
   }
 
+  /**
+   * Dado un valor que puede venir sin tildes (ej: "CONCEPCION" del Excel),
+   * devuelve el nombre canónico del departamento con tildes (ej: "CONCEPCIÓN").
+   * Si no hay coincidencia, devuelve el valor original.
+   */
+  matchDepartamento(valor: string): string {
+    if (!valor) return valor;
+    const found = this.data.find(d => this.norm(d.nombre) === this.norm(valor));
+    return found ? found.nombre : valor;
+  }
+
   /** Todos los datos (para filtros avanzados) */
   getAll(): Departamento[] {
     return this.data;
+  }
+
+  /** Quita tildes y pasa a mayúsculas para comparación */
+  private norm(s: string): string {
+    return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
   }
 }

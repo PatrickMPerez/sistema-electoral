@@ -9,7 +9,7 @@ class UsuarioController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(User::with(['zona','jefeZona','coordinador'])->get());
+        return response()->json(User::with(['zona','jefeZona','coordinador','veedor'])->get());
     }
 
     public function store(StoreUsuarioRequest $request): JsonResponse
@@ -28,6 +28,8 @@ class UsuarioController extends Controller
             'zona_id'        => 'nullable|exists:zonas,id',
             'jefe_zona_id'   => 'nullable|exists:jefes_zona,id',
             'coordinador_id' => 'nullable|exists:coordinadores,id',
+            'veedor_id'      => 'nullable|exists:veedores,id',
+            'mesa'           => 'nullable|string|max:20',
         ]);
         if ($request->filled('password')) {
             $data['password'] = bcrypt($request->password);

@@ -9,7 +9,7 @@ import { RouterOutlet } from '@angular/router';
   styleUrl: './app.component.css'
 })
 export class AppComponent {
-  title = 'Sistema Electoral';
+  title = 'Boca de Urna';
   isSidebarOpen = false;
 
   toggleSidebar() {

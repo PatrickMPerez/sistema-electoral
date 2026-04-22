@@ -267,6 +267,54 @@ class ReportesController extends Controller
         return response()->json($query->paginate(100));
     }
 
+    /**
+     * Padrón por jefe de zona (exportable Excel).
+     * Roles: admin (cualquier jefe), jefe_zona (solo el suyo).
+     * GET /reportes/padron-jefe-zona/{id}[?exportar=1]
+     */
+    public function padronJefeZona(Request $request, int $id)
+    {
+        $user = $request->user();
+
+        if ($user->isJefeZona() && $user->jefe_zona_id !== $id) {
+            return response()->json(['error' => 'Sin acceso a este jefe de zona.'], 403);
+        }
+
+        $query = Votante::with(['zona', 'coordinador', 'localVotacion'])
+            ->where('jefe_zona_id', $id)
+            ->orderBy('numero_orden');
+
+        if ($request->boolean('exportar')) {
+            $data = $query->get()->map(fn($v) => collect([
+                $v->nombres,
+                $v->apellidos,
+                $v->cedula,
+                $v->telefono,
+                $v->departamento,
+                $v->distrito,
+                $v->seccional,
+                $v->localVotacion?->nombre_local,
+                $v->mesa,
+                $v->numero_orden,
+                $v->zona?->nombre_zona,
+                $v->coordinador?->nombre_completo,
+                $v->estado_votacion === 'ya_voto' ? 'Votó' : 'Pendiente',
+            ]));
+
+            return Excel::download(
+                new ReporteExport($data, [
+                    'Nombres', 'Apellidos', 'Cédula', 'Teléfono',
+                    'Departamento', 'Distrito', 'Seccional',
+                    'Local de Votación', 'Mesa', 'N° Orden',
+                    'Zona', 'Coordinador', 'Estado',
+                ]),
+                "padron-jefe-zona-{$id}.xlsx"
+            );
+        }
+
+        return response()->json($query->paginate(100));
+    }
+
     // ──────────────────────────────────────────────────────────────
     // DETECCIÓN DE DATOS SIMILARES
     // ──────────────────────────────────────────────────────────────

@@ -21,7 +21,7 @@ class UpdateVotanteRequest extends FormRequest
             'numero_orden'     => 'sometimes|integer|min:1|unique:votantes,numero_orden,' . $id,
             'local_votacion_id'=> 'sometimes|exists:locales_votacion,id',
             'zona_id'          => 'sometimes|exists:zonas,id',
-            'coordinador_id'   => 'sometimes|exists:coordinadores,id',
+            'coordinador_id'   => 'nullable|exists:coordinadores,id',
             'jefe_zona_id'     => 'nullable|exists:jefes_zona,id',
             'movimiento_id'    => 'nullable|exists:movimientos,id',
             'localidad'        => 'nullable|string|max:255',
