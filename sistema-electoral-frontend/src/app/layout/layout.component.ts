@@ -110,6 +110,18 @@ interface NavItem { label: string; icon: string; route: string; roles: string[] 
       </div>
     }
 
+    <!-- ENCARGADO PC BANNER -->
+    @if (auth.role() === 'encargado_pc') {
+      <div class="veedor-banner">
+        <span class="material-symbols-outlined">redeem</span>
+        <div>
+          <span class="veedor-bienvenida">Bienvenido/a,</span>
+          <span class="veedor-nombre">{{ auth.user()?.name }}</span>
+        </div>
+        <span class="veedor-rol-chip">Puesto de Comando</span>
+      </div>
+    }
+
     <!-- CONTENT AREA -->
     <main class="content-area">
       <router-outlet></router-outlet>
@@ -189,7 +201,8 @@ export class LayoutComponent {
     { label: 'Importar Excel',   icon: 'upload_file',      route: '/importar',         roles: ['administrador','jefe_zona','coordinador'] },
     { label: 'Búsqueda',         icon: 'search',           route: '/busqueda',         roles: ['administrador','jefe_zona','coordinador'] },
     { label: 'Control Votación', icon: 'how_to_vote',      route: '/control-votacion', roles: ['vedor'] },
-    { label: 'Faltantes',        icon: 'person_off',       route: '/faltantes',        roles: ['administrador','jefe_zona','coordinador'] },
+    { label: 'Control PC',       icon: 'redeem',           route: '/control-pc',       roles: ['encargado_pc'] },
+    { label: 'Faltantes',       icon: 'person_off',       route: '/faltantes',        roles: ['administrador','jefe_zona','coordinador'] },
     { label: 'Reportes',         icon: 'assessment',       route: '/reportes',         roles: ['administrador','jefe_zona','coordinador'] },
     { label: 'Auditoría',        icon: 'history',          route: '/auditoria',        roles: ['administrador'] },
     { label: 'Configuración',    icon: 'settings',         route: '/configuracion',    roles: ['administrador', 'jefe_zona'] },

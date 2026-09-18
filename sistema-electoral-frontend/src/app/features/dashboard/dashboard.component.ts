@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -84,6 +84,30 @@ import { MonitoreoResumen, ZonaResumen } from '../../core/models/votante.model';
       </mat-card>
     }
 
+    <!-- Embudo: Total → PC → Votaron -->
+    @if (resumen(); as r) {
+      <mat-card class="page-card">
+        <mat-card-header>
+          <mat-card-title>Embudo de Participación</mat-card-title>
+        </mat-card-header>
+        <mat-card-content style="padding-top:16px">
+          <div class="funnel">
+            @for (paso of embudo(); track paso.label) {
+              <div class="funnel-step">
+                <div class="funnel-head">
+                  <span class="funnel-label"><mat-icon>{{ paso.icon }}</mat-icon> {{ paso.label }}</span>
+                  <span class="funnel-num">{{ paso.valor | number }} <small>({{ paso.pct | number:'1.1-1' }}%)</small></span>
+                </div>
+                <div class="funnel-track">
+                  <div class="funnel-bar" [style.width.%]="paso.pct" [style.background]="paso.color"></div>
+                </div>
+              </div>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+
     <!-- Tabla por coordinador (admin y jefe_zona) -->
     @if (isAdmin() && coordinadores().length) {
       <mat-card class="page-card">
@@ -156,6 +180,14 @@ import { MonitoreoResumen, ZonaResumen } from '../../core/models/votante.model';
     .badge-voto { background: #e8f5e9; color: #2e7d32; padding: 4px 8px; border-radius: var(--radius-full); font-weight: 600; font-size: 0.8rem; }
     .badge-pend { background: #fff3e0; color: #ef6c00; padding: 4px 8px; border-radius: var(--radius-full); font-weight: 600; font-size: 0.8rem; }
     .spacer { flex: 1; }
+    .funnel { display: flex; flex-direction: column; gap: 16px; }
+    .funnel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.9rem; }
+    .funnel-label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--c-text-main); }
+    .funnel-label mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .funnel-num { font-weight: 700; }
+    .funnel-num small { font-weight: 400; color: var(--c-text-muted); }
+    .funnel-track { height: 16px; background: #eceff1; border-radius: 8px; overflow: hidden; }
+    .funnel-bar { height: 100%; border-radius: 8px; transition: width .4s ease; min-width: 2px; }
   `]
 })
 export class DashboardComponent implements OnInit {
@@ -163,6 +195,18 @@ export class DashboardComponent implements OnInit {
   private auth = inject(AuthService);
 
   resumen      = signal<MonitoreoResumen | null>(null);
+
+  embudo = computed(() => {
+    const r = this.resumen();
+    if (!r) return [];
+    const pct = (n: number) => r.total > 0 ? (n / r.total) * 100 : 0;
+    const pc  = r.pasaron_por_pc ?? 0;
+    return [
+      { label: 'Total Votantes',        icon: 'groups',     valor: r.total,      pct: r.total > 0 ? 100 : 0, color: '#1a237e' },
+      { label: 'Pasaron por PC',        icon: 'redeem',     valor: pc,           pct: pct(pc),               color: '#f57c00' },
+      { label: 'Efectivamente Votaron', icon: 'how_to_vote', valor: r.ya_votaron, pct: pct(r.ya_votaron),     color: '#388e3c' },
+    ];
+  });
   coordinadores = signal<any[]>([]);
   coordCols    = ['nombre', 'zona', 'total', 'ya_votaron', 'pendientes', 'porcentaje'];
 

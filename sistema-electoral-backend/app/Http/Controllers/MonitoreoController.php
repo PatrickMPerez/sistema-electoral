@@ -21,11 +21,13 @@ class MonitoreoController extends Controller
 
         $total      = (clone $query)->count();
         $yaVotaron  = (clone $query)->where('estado_votacion', 'ya_voto')->count();
+        $pasaronPc  = (clone $query)->where('paso_por_pc', true)->count();
         $pendientes = $total - $yaVotaron;
         $porcentaje = $total > 0 ? round(($yaVotaron / $total) * 100, 2) : 0;
 
         return response()->json([
             'total'               => $total,
+            'pasaron_por_pc'      => $pasaronPc,
             'ya_votaron'          => $yaVotaron,
             'pendientes'          => $pendientes,
             'porcentaje'          => $porcentaje,

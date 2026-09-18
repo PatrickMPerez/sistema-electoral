@@ -12,7 +12,7 @@ class StoreUsuarioRequest extends FormRequest
             'name'           => 'required|string|max:255',
             'username'       => 'required|string|max:50|unique:users,username',
             'password'       => 'required|string|min:6|confirmed',
-            'role'           => 'required|in:administrador,jefe_zona,coordinador,vedor',
+            'role'           => 'required|in:administrador,jefe_zona,coordinador,vedor,encargado_pc',
             'zona_id'        => 'nullable|exists:zonas,id',
             'jefe_zona_id'   => 'nullable|exists:jefes_zona,id',
             'coordinador_id' => 'nullable|exists:coordinadores,id',

@@ -106,7 +106,8 @@ export class LoginComponent {
     this.auth.login(username!, password!).subscribe({
       next: res => {
         const role = res.user.role;
-        this.router.navigate(role === 'vedor' ? ['/control-votacion'] : ['/dashboard']);
+        const destinos: Record<string, string> = { vedor: '/control-votacion', encargado_pc: '/control-pc' };
+        this.router.navigate([destinos[role] ?? '/dashboard']);
       },
       error: err => {
         const msg = err?.error?.errors?.username?.[0] ?? err?.error?.message ?? 'Error al iniciar sesión';

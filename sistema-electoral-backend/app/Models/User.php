@@ -31,11 +31,13 @@ class User extends Authenticatable
     public function isJefeZona(): bool    { return $this->role === 'jefe_zona'; }
     public function isCoordinador(): bool { return $this->role === 'coordinador'; }
     public function isVedor(): bool       { return $this->role === 'vedor'; }
+    public function isEncargadoPC(): bool { return $this->role === 'encargado_pc'; }
 
     public function zona()        { return $this->belongsTo(Zona::class); }
     public function jefeZona()    { return $this->belongsTo(JefeZona::class); }
     public function coordinador() { return $this->belongsTo(Coordinador::class); }
     public function veedor()      { return $this->belongsTo(Veedor::class); }
     public function marcaciones(): HasMany { return $this->hasMany(MarcacionVoto::class, 'usuario_veedor_id'); }
-    public function auditoria(): HasMany   { return $this->hasMany(Auditoria::class, 'usuario_id'); }
+    public function marcacionesPC(): HasMany { return $this->hasMany(MarcacionPC::class, 'usuario_pc_id'); }
+    public function auditoria(): HasMany  { return $this->hasMany(Auditoria::class, 'usuario_id'); }
 }

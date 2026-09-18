@@ -2,6 +2,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\CoordinadorController;
+use App\Http\Controllers\ControlPCController;
 use App\Http\Controllers\ControlVotacionController;
 use App\Http\Controllers\JefeZonaController;
 use App\Http\Controllers\LocalVotacionController;
@@ -84,5 +85,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:vedor')->group(function () {
         Route::post('control-votacion/buscar', [ControlVotacionController::class, 'buscar']);
         Route::post('control-votacion/marcar', [ControlVotacionController::class, 'marcar']);
+    });
+
+    // ── Solo encargado_pc (Puesto de Comando) ───────────────────
+    Route::middleware('role:encargado_pc')->group(function () {
+        Route::post('pc/buscar', [ControlPCController::class, 'buscar']);
+        Route::post('pc/marcar', [ControlPCController::class, 'marcar']);
+        Route::get('pc/listado', [ControlPCController::class, 'listado']);
     });
 });

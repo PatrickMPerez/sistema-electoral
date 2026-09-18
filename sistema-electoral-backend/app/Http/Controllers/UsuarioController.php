@@ -23,7 +23,7 @@ class UsuarioController extends Controller
         $data = $request->validate([
             'name'           => 'sometimes|string|max:255',
             'username'       => 'sometimes|string|max:50|unique:users,username,' . $user->id,
-            'role'           => 'sometimes|in:administrador,jefe_zona,coordinador,vedor',
+            'role'           => 'sometimes|in:administrador,jefe_zona,coordinador,vedor,encargado_pc',
             'activo'         => 'sometimes|boolean',
             'zona_id'        => 'nullable|exists:zonas,id',
             'jefe_zona_id'   => 'nullable|exists:jefes_zona,id',

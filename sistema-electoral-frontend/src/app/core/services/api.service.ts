@@ -56,6 +56,21 @@ export class ApiService {
     return this.http.post(`${this.base}/control-votacion/marcar`, data);
   }
 
+  // ── Puesto de Comando (PC) ──────────────────────────────────
+  buscarPC(cedula: string): Observable<any> {
+    return this.http.post(`${this.base}/pc/buscar`, { cedula });
+  }
+
+  marcarPC(data: { cedula: string; premio_entregado?: boolean }): Observable<any> {
+    return this.http.post(`${this.base}/pc/marcar`, data);
+  }
+
+  getListadoPC(params: { estado?: string; buscar?: string; page?: number } = {}): Observable<PaginatedResponse<any>> {
+    let qp = new HttpParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') qp = qp.set(k, String(v)); });
+    return this.http.get<PaginatedResponse<any>>(`${this.base}/pc/listado`, { params: qp });
+  }
+
   // ── Monitoreo ───────────────────────────────────────────────
   getResumen(): Observable<MonitoreoResumen> {
     return this.http.get<MonitoreoResumen>(`${this.base}/monitoreo/resumen`);

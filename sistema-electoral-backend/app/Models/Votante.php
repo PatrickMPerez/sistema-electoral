@@ -10,7 +10,7 @@ class Votante extends Model
         'nombre_completo', 'nombres', 'apellidos',
         'cedula', 'telefono', 'localidad',
         'departamento', 'distrito', 'seccional', 'mesa',
-        'numero_orden', 'estado_votacion',
+        'numero_orden', 'estado_votacion', 'paso_por_pc',
         'fecha_nacimiento', 'direccion', 'fecha_afiliacion',
         'zona_id', 'coordinador_id', 'jefe_zona_id',
         'movimiento_id', 'local_votacion_id', 'usuario_carga_id',
@@ -32,6 +32,7 @@ class Votante extends Model
     public function localVotacion() { return $this->belongsTo(LocalVotacion::class, 'local_votacion_id'); }
     public function usuarioCarga()  { return $this->belongsTo(User::class, 'usuario_carga_id'); }
     public function marcaciones()   { return $this->hasMany(MarcacionVoto::class); }
+    public function marcacionesPC() { return $this->hasMany(MarcacionPC::class); }
 
     public function yaVoto(): bool { return $this->estado_votacion === 'ya_voto'; }
 

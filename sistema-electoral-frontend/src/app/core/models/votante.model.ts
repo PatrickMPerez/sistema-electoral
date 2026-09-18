@@ -14,6 +14,7 @@ export interface Votante {
   seccional: string;
   mesa: number;
   estado_votacion: EstadoVotacion;
+  paso_por_pc?: boolean;
   zona_id?: number;
   local_votacion_id?: number;
   jefe_zona_id?: number;
@@ -36,6 +37,7 @@ export interface PaginatedResponse<T> {
 
 export interface MonitoreoResumen {
   total: number;
+  pasaron_por_pc?: number;
   ya_votaron: number;
   pendientes: number;
   porcentaje: number;

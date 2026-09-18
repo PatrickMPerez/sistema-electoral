@@ -62,6 +62,7 @@ import { ApiService } from '../../core/services/api.service';
           <mat-option value="jefe_zona">Jefe de Zona</mat-option>
           <mat-option value="coordinador">Coordinador</mat-option>
           <mat-option value="vedor">Vedor</mat-option>
+          <mat-option value="encargado_pc">Encargado PC</mat-option>
         </mat-select>
       </mat-form-field>
 

@@ -49,6 +49,13 @@ export const routes: Routes = [
       },
 
       {
+        path: 'control-pc',
+        loadComponent: () => import('./features/control-pc/control-pc.component').then(m => m.ControlPCComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['encargado_pc'] }
+      },
+
+      {
         path: 'faltantes',
         loadComponent: () => import('./features/faltantes/faltantes.component').then(m => m.FaltantesComponent),
         canActivate: [roleGuard],

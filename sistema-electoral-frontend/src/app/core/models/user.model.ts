@@ -1,4 +1,4 @@
-export type Rol = 'administrador' | 'jefe_zona' | 'coordinador' | 'vedor';
+export type Rol = 'administrador' | 'jefe_zona' | 'coordinador' | 'vedor' | 'encargado_pc';
 
 export interface User {
   id: number;
