@@ -65,6 +65,7 @@ class ControlVotacionController extends Controller
             'distrito'        => $votante->distrito,
             'seccional'       => $votante->seccional,
             'estado_votacion' => $votante->estado_votacion,
+            'paso_por_pc'     => (bool) $votante->paso_por_pc,
             'zona'            => $votante->zona
                 ? ['id' => $votante->zona->id, 'nombre_zona' => $votante->zona->nombre_zona]
                 : null,

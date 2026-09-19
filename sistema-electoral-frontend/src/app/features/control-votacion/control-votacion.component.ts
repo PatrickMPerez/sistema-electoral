@@ -148,6 +148,18 @@ type Estado = 'setup' | 'idle' | 'buscando' | 'encontrado' | 'marcando' | 'votad
                 <span class="status-badge pendiente">No votó</span>
               </div>
 
+              @if (votante()?.paso_por_pc) {
+                <div class="pc-banner pc-si">
+                  <mat-icon>redeem</mat-icon>
+                  <span>Ya pasó por el PC y retiró su incentivo</span>
+                </div>
+              } @else {
+                <div class="pc-banner pc-no">
+                  <mat-icon>report_problem</mat-icon>
+                  <span>Aún NO pasó por el PC</span>
+                </div>
+              }
+
               <mat-divider style="margin:12px 0"></mat-divider>
 
               <div class="info-grid">
@@ -416,6 +428,15 @@ type Estado = 'setup' | 'idle' | 'buscando' | 'encontrado' | 'marcando' | 'votad
       font-size: 12px; font-weight: 700; white-space: nowrap;
     }
     .pendiente { background: #fff3e0; color: #e65100; }
+
+    .pc-banner {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 12px; padding: 10px 14px;
+      border-radius: 8px; font-size: 14px; font-weight: 700;
+    }
+    .pc-banner mat-icon { flex-shrink: 0; }
+    .pc-si { background: #c8e6c9; color: #1b5e20; }
+    .pc-no { background: #ffe0b2; color: #bf360c; }
 
     .info-grid {
       display: grid;
